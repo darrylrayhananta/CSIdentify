@@ -10,3 +10,4 @@ data/cases.csv
 # Generated document QA artifacts
 docs/rendered_docx/
 docs/*.txt
+.vercel
