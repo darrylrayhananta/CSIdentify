@@ -541,13 +541,11 @@ def build_html_dashboard() -> str:
     }
     .layout {
       display: grid;
-      grid-template-columns: 350px minmax(0, 1fr);
       gap: 14px;
-      align-items: start;
     }
-    .sidebar {
-      display: grid;
-      gap: 14px;
+    .input-panel .upload-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 190px;
+      align-items: stretch;
     }
     .panel {
       border: 1px solid var(--line);
@@ -588,6 +586,15 @@ def build_html_dashboard() -> str:
       border: 1px solid var(--line);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.56);
+    }
+    .action-card {
+      display: grid;
+      align-content: end;
+      min-height: 118px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.38);
     }
     label {
       display: block;
@@ -662,20 +669,20 @@ def build_html_dashboard() -> str:
     }
     .empty-state {
       display: grid;
-      min-height: 116px;
-      place-items: center;
-      padding: 18px;
+      min-height: 72px;
+      place-items: center start;
+      padding: 14px 16px;
       border: 1px dashed rgba(31, 70, 182, 0.34);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.45);
       color: var(--muted);
-      text-align: center;
+      text-align: left;
       line-height: 1.45;
       font-size: 13px;
     }
     .summary {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: 1.4fr repeat(3, minmax(0, 0.8fr));
       gap: 10px;
     }
     .metric {
@@ -702,7 +709,7 @@ def build_html_dashboard() -> str:
       overflow-wrap: anywhere;
     }
     .metric strong.small {
-      font-size: 15px;
+      font-size: 17px;
       line-height: 1.25;
     }
     .verdict {
@@ -727,7 +734,7 @@ def build_html_dashboard() -> str:
       padding: 10px;
     }
     #profileComparisonChart {
-      min-height: 310px;
+      min-height: 330px;
     }
     .chart-empty {
       display: grid;
@@ -744,7 +751,7 @@ def build_html_dashboard() -> str:
     }
     .two-col {
       display: grid;
-      grid-template-columns: 0.78fr 1.22fr;
+      grid-template-columns: minmax(300px, 0.7fr) minmax(0, 1.3fr);
       gap: 14px;
       margin-top: 14px;
     }
@@ -816,7 +823,7 @@ def build_html_dashboard() -> str:
     }
     @media (max-width: 900px) {
       body { padding: 18px; }
-      header, .layout, .two-col {
+      header, .layout, .two-col, .input-panel .upload-grid {
         display: block;
       }
       .status-chip {
@@ -825,6 +832,9 @@ def build_html_dashboard() -> str:
       }
       .panel {
         margin-bottom: 16px;
+      }
+      .file-card, .action-card {
+        margin-bottom: 12px;
       }
     }
     @media (max-width: 560px) {
@@ -852,57 +862,57 @@ def build_html_dashboard() -> str:
     </header>
 
     <section class="layout">
-      <aside class="sidebar">
-        <div class="panel">
-          <div class="panel-heading">
-            <h2 class="panel-title">Input File</h2>
-            <span class="panel-kicker">TXT + CSV</span>
+      <article class="panel input-panel">
+        <div class="panel-heading">
+          <h2 class="panel-title">Input File</h2>
+          <span class="panel-kicker">TXT + CSV</span>
+        </div>
+        <div class="upload-grid">
+          <div class="file-card">
+            <label for="dnaFileInput">DNA TKP (.txt)</label>
+            <input id="dnaFileInput" type="file" accept=".txt,text/plain">
+            <div id="dnaFileStatus" class="file-note">Belum ada file DNA TKP.</div>
           </div>
-          <div class="upload-grid">
-            <div class="file-card">
-              <label for="dnaFileInput">DNA TKP (.txt)</label>
-              <input id="dnaFileInput" type="file" accept=".txt,text/plain">
-              <div id="dnaFileStatus" class="file-note">Belum ada file DNA TKP.</div>
-            </div>
-            <div class="file-card">
-              <label for="suspectCsvFileInput">Database Tersangka (.csv)</label>
-              <input id="suspectCsvFileInput" type="file" accept=".csv,text/csv">
-              <div id="suspectFileStatus" class="file-note">Belum ada file CSV tersangka.</div>
-            </div>
+          <div class="file-card">
+            <label for="suspectCsvFileInput">Database Tersangka (.csv)</label>
+            <input id="suspectCsvFileInput" type="file" accept=".csv,text/csv">
+            <div id="suspectFileStatus" class="file-note">Belum ada file CSV tersangka.</div>
+          </div>
+          <div class="action-card">
             <button id="analyzeButton" type="button">Analyze STR</button>
+            <div id="errorBox" class="error" role="alert"></div>
           </div>
-          <div id="errorBox" class="error" role="alert"></div>
         </div>
+      </article>
 
-        <div class="panel">
-          <div class="panel-heading">
-            <h2 class="panel-title">Hasil Utama</h2>
-            <span class="panel-kicker">Best match</span>
-          </div>
-          <div id="resultEmptyState" class="empty-state">Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.</div>
-          <div id="resultSummary" class="is-hidden">
-            <span id="verdictView" class="verdict">READY</span>
-            <div class="summary" style="margin-top: 10px;">
-              <div class="metric">
-                <span>Best Match</span>
-                <strong id="bestNameView" class="small">-</strong>
-              </div>
-              <div class="metric">
-                <span>Skor</span>
-                <strong id="scoreView">0%</strong>
-              </div>
-              <div class="metric">
-                <span>Marker Cocok</span>
-                <strong id="matchedView">0/0</strong>
-              </div>
-              <div class="metric">
-                <span>Jarak</span>
-                <strong id="distanceView">0</strong>
-              </div>
+      <article class="panel result-panel">
+        <div class="panel-heading">
+          <h2 class="panel-title">Hasil Utama</h2>
+          <span class="panel-kicker">Best match</span>
+        </div>
+        <div id="resultEmptyState" class="empty-state">Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.</div>
+        <div id="resultSummary" class="is-hidden">
+          <span id="verdictView" class="verdict">READY</span>
+          <div class="summary" style="margin-top: 10px;">
+            <div class="metric">
+              <span>Best Match</span>
+              <strong id="bestNameView" class="small">-</strong>
+            </div>
+            <div class="metric">
+              <span>Skor</span>
+              <strong id="scoreView">0%</strong>
+            </div>
+            <div class="metric">
+              <span>Marker Cocok</span>
+              <strong id="matchedView">0/0</strong>
+            </div>
+            <div class="metric">
+              <span>Jarak</span>
+              <strong id="distanceView">0</strong>
             </div>
           </div>
         </div>
-      </aside>
+      </article>
 
       <article class="panel">
         <div class="panel-heading">
