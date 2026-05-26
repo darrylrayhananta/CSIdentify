@@ -500,14 +500,24 @@ def build_html_dashboard() -> str:
       align-items: center;
       gap: 14px;
     }
-    .brand-mark {
+    .logo-placeholder {
       display: grid;
       place-items: center;
       width: 48px;
       height: 48px;
-      border-radius: 8px;
-      color: var(--surface-lowest);
-      background: var(--primary-container);
+      border: 1px dashed var(--primary-container);
+      border-radius: 4px;
+      color: var(--primary-container);
+      background: var(--surface-lowest);
+      font: 700 10px/14px "JetBrains Mono", monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .logo-placeholder img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
     }
     .brand-name {
       color: var(--primary);
@@ -538,7 +548,7 @@ def build_html_dashboard() -> str:
       display: contents;
     }
     .page-hidden {
-      display: none;
+      display: none !important;
     }
     .workspace-header {
       margin-bottom: 16px;
@@ -977,7 +987,10 @@ def build_html_dashboard() -> str:
 <body>
   <div class="brand-area">
     <div class="brand-lockup">
-      <div class="brand-mark"><span class="material-symbols-outlined">biotech</span></div>
+      <div class="logo-placeholder">
+        <img alt="CSIdentify logo" src="">
+        <span>Logo</span>
+      </div>
       <span class="brand-name">CSIdentify</span>
     </div>
   </div>
@@ -1014,11 +1027,6 @@ def build_html_dashboard() -> str:
       </button>
     </div>
     <div id="errorBox" class="error" role="alert"></div>
-
-    <section id="resultEmptyState" class="data-tile chart-card input-page">
-      <h2 class="section-title">Analysis Status</h2>
-      <div class="chart-empty">Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.</div>
-    </section>
 
     <section id="analysisHeader" class="workspace-header analysis-page page-hidden">
       <h1>Analysis Result</h1>
@@ -1271,7 +1279,6 @@ def build_html_dashboard() -> str:
 
     function renderEmptyState() {
       $('analysisStatus').textContent = 'Menunggu file';
-      $('resultEmptyState').classList.remove('is-hidden');
       showInputPage();
       $('profileRows').innerHTML = '';
       $('suspectRows').innerHTML = '';
@@ -1346,7 +1353,6 @@ def build_html_dashboard() -> str:
       const best = state.ranked[0];
       $('analysisStatus').textContent = 'Analisis selesai';
       $('analysisStatusView').textContent = 'Analisis selesai';
-      $('resultEmptyState').classList.add('is-hidden');
       $('resultSummary').classList.add('is-visible');
       showAnalysisPage();
 
