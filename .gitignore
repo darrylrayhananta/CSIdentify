@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+
+# Optional scratch artifacts
+output_interactive/
+output/
+data/cases.csv
+
+# Generated document QA artifacts
+docs/rendered_docx/
+docs/*.txt
