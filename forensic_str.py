@@ -543,10 +543,6 @@ def build_html_dashboard() -> str:
     footer {
       grid-column: 1 / -1;
     }
-    .input-page,
-    .analysis-page {
-      display: contents;
-    }
     .page-hidden {
       display: none !important;
     }
