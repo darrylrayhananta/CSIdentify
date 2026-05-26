@@ -11,7 +11,7 @@
       --peach: #F4C0AF;
       --cream: #F7E6D3;
       --navy: #17327D;
-      --paper: rgba(255, 255, 255, 0.78);
+      --paper: rgba(255, 255, 255, 0.86);
       --paper-strong: rgba(255, 255, 255, 0.94);
       --line: rgba(23, 50, 125, 0.18);
       --text: #17327D;
@@ -25,48 +25,53 @@
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        linear-gradient(135deg, rgba(244, 192, 175, 0.92), rgba(247, 230, 211, 0.96) 54%, rgba(31, 70, 182, 0.16)),
+        linear-gradient(135deg, rgba(244, 192, 175, 0.88), rgba(247, 230, 211, 0.98) 58%, rgba(31, 70, 182, 0.12)),
         var(--cream);
-      padding: 28px;
+      padding: 24px;
     }
-    main { max-width: 1180px; margin: 0 auto; }
+    main { max-width: 1120px; margin: 0 auto; }
     header {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 18px;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 14px 34px rgba(23, 50, 125, 0.10);
+      backdrop-filter: blur(16px);
     }
     h1 {
       margin: 0;
       color: var(--navy);
-      font-size: clamp(32px, 5vw, 56px);
+      font-size: clamp(30px, 4.2vw, 44px);
       line-height: 1;
       letter-spacing: 0;
     }
     .eyebrow {
       color: var(--magenta);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 900;
       letter-spacing: 0.1em;
       margin-bottom: 8px;
       text-transform: uppercase;
     }
     .subtitle {
-      max-width: 720px;
-      margin: 10px 0 0;
+      max-width: 760px;
+      margin: 9px 0 0;
       color: var(--muted);
-      font-size: 15px;
-      line-height: 1.55;
+      font-size: 14px;
+      line-height: 1.48;
     }
     .status-chip {
-      min-width: 210px;
-      padding: 12px 14px;
+      min-width: 176px;
+      padding: 11px 13px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--paper);
+      background: var(--paper-strong);
       text-align: right;
-      backdrop-filter: blur(16px);
     }
     .status-chip span {
       display: block;
@@ -80,38 +85,63 @@
       display: block;
       margin-top: 4px;
       color: var(--blue);
-      font-size: 16px;
+      font-size: 15px;
     }
     .layout {
       display: grid;
-      grid-template-columns: minmax(300px, 0.74fr) minmax(0, 1.26fr);
-      gap: 16px;
+      grid-template-columns: 350px minmax(0, 1fr);
+      gap: 14px;
       align-items: start;
+    }
+    .sidebar {
+      display: grid;
+      gap: 14px;
     }
     .panel {
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--paper);
-      box-shadow: 0 18px 42px rgba(23, 50, 125, 0.13);
+      box-shadow: 0 12px 30px rgba(23, 50, 125, 0.10);
       backdrop-filter: blur(16px);
-      padding: 18px;
+      padding: 16px;
     }
-    .panel + .panel { margin-top: 16px; }
+    .panel + .panel { margin-top: 14px; }
+    .panel-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
     .panel-title {
-      margin: 0 0 14px;
+      margin: 0;
       color: var(--navy);
-      font-size: 18px;
+      font-size: 16px;
       line-height: 1.2;
+    }
+    .panel-kicker {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
     .upload-grid {
       display: grid;
-      gap: 13px;
+      gap: 12px;
+    }
+    .file-card {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.56);
     }
     label {
       display: block;
       margin-bottom: 7px;
       color: var(--navy);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -120,11 +150,20 @@
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(255, 255, 255, 0.72);
+      background: rgba(255, 255, 255, 0.82);
       color: var(--text);
-      padding: 11px 12px;
+      padding: 9px 10px;
       font: 13px/1.45 Inter, ui-sans-serif, system-ui, sans-serif;
       outline: none;
+      cursor: pointer;
+    }
+    input[type="file"]::file-selector-button {
+      border: 1px solid rgba(23, 50, 125, 0.16);
+      border-radius: 6px;
+      background: var(--cream);
+      color: var(--navy);
+      padding: 7px 10px;
+      font-weight: 800;
       cursor: pointer;
     }
     input[type="file"]:focus {
@@ -132,11 +171,11 @@
       box-shadow: 0 0 0 3px rgba(31, 70, 182, 0.14);
     }
     .file-note {
-      min-height: 18px;
+      min-height: 16px;
       margin-top: 7px;
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.45;
+      font-size: 11px;
+      line-height: 1.35;
       overflow-wrap: anywhere;
     }
     button {
@@ -145,7 +184,7 @@
       border-radius: 8px;
       background: var(--blue);
       color: #ffffff;
-      min-height: 42px;
+      min-height: 40px;
       padding: 10px 14px;
       font-weight: 900;
       letter-spacing: 0.02em;
@@ -171,24 +210,24 @@
     }
     .empty-state {
       display: grid;
-      min-height: 206px;
+      min-height: 116px;
       place-items: center;
-      padding: 22px;
+      padding: 18px;
       border: 1px dashed rgba(31, 70, 182, 0.34);
       border-radius: 8px;
       background: rgba(255, 255, 255, 0.45);
       color: var(--muted);
       text-align: center;
       line-height: 1.45;
+      font-size: 13px;
     }
     .summary {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
-      margin-bottom: 16px;
     }
     .metric {
-      min-height: 84px;
+      min-height: 76px;
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -206,7 +245,7 @@
       display: block;
       margin-top: 7px;
       color: var(--navy);
-      font-size: clamp(18px, 3vw, 28px);
+      font-size: 24px;
       line-height: 1.05;
       overflow-wrap: anywhere;
     }
@@ -233,24 +272,29 @@
       overflow-x: auto;
       border-radius: 8px;
       background: var(--navy);
+      padding: 10px;
     }
     #profileComparisonChart {
-      min-height: 360px;
+      min-height: 310px;
     }
     .chart-empty {
       display: grid;
-      min-height: 360px;
+      min-height: 300px;
       place-items: center;
-      color: rgba(247, 230, 211, 0.82);
+      border: 1px dashed rgba(247, 230, 211, 0.26);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(247, 230, 211, 0.86);
       text-align: center;
       line-height: 1.45;
       padding: 22px;
+      font-size: 14px;
     }
     .two-col {
       display: grid;
-      grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
-      gap: 16px;
-      margin-top: 16px;
+      grid-template-columns: 0.78fr 1.22fr;
+      gap: 14px;
+      margin-top: 14px;
     }
     table {
       width: 100%;
@@ -310,7 +354,7 @@
       color: var(--magenta);
     }
     footer {
-      margin-top: 16px;
+      margin-top: 14px;
       color: var(--muted);
       font-size: 12px;
       line-height: 1.45;
@@ -330,9 +374,6 @@
       .panel {
         margin-bottom: 16px;
       }
-      .summary {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
     }
     @media (max-width: 560px) {
       .summary {
@@ -350,7 +391,7 @@
       <div>
         <div class="eyebrow">Forensic STR Analysis</div>
         <h1>CSI STR Profiler</h1>
-        <p class="subtitle">Upload DNA TKP berbentuk file .txt dan database tersangka berbentuk file .csv. Sistem akan membaca marker STR dari header CSV, mencari repeat terpanjang dengan RegEx, lalu membandingkan profil TKP dengan semua tersangka.</p>
+        <p class="subtitle">Upload file DNA TKP dan database tersangka. Sistem membaca marker STR dari CSV, menghitung repeat terpanjang dengan RegEx, lalu membandingkan profil semua tersangka.</p>
       </div>
       <div class="status-chip">
         <span>Status</span>
@@ -359,16 +400,19 @@
     </header>
 
     <section class="layout">
-      <aside>
+      <aside class="sidebar">
         <div class="panel">
-          <h2 class="panel-title">Input File</h2>
+          <div class="panel-heading">
+            <h2 class="panel-title">Input File</h2>
+            <span class="panel-kicker">TXT + CSV</span>
+          </div>
           <div class="upload-grid">
-            <div>
+            <div class="file-card">
               <label for="dnaFileInput">DNA TKP (.txt)</label>
               <input id="dnaFileInput" type="file" accept=".txt,text/plain">
               <div id="dnaFileStatus" class="file-note">Belum ada file DNA TKP.</div>
             </div>
-            <div>
+            <div class="file-card">
               <label for="suspectCsvFileInput">Database Tersangka (.csv)</label>
               <input id="suspectCsvFileInput" type="file" accept=".csv,text/csv">
               <div id="suspectFileStatus" class="file-note">Belum ada file CSV tersangka.</div>
@@ -379,11 +423,14 @@
         </div>
 
         <div class="panel">
-          <h2 class="panel-title">Hasil Utama</h2>
+          <div class="panel-heading">
+            <h2 class="panel-title">Hasil Utama</h2>
+            <span class="panel-kicker">Best match</span>
+          </div>
           <div id="resultEmptyState" class="empty-state">Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.</div>
           <div id="resultSummary" class="is-hidden">
             <span id="verdictView" class="verdict">READY</span>
-            <div class="summary" style="margin-top: 12px;">
+            <div class="summary" style="margin-top: 10px;">
               <div class="metric">
                 <span>Best Match</span>
                 <strong id="bestNameView" class="small">-</strong>
@@ -406,10 +453,13 @@
       </aside>
 
       <article class="panel">
-        <h2 class="panel-title">Profil STR DNA TKP vs Tersangka</h2>
+        <div class="panel-heading">
+          <h2 class="panel-title">Profil STR DNA TKP vs Tersangka</h2>
+          <span class="panel-kicker">Comparison chart</span>
+        </div>
         <div class="chart-frame">
           <div id="profileComparisonChart">
-            <div class="chart-empty">Chart akan muncul setelah kedua file diupload dan dianalisis.</div>
+            <div class="chart-empty">Upload kedua file untuk melihat chart profil STR.</div>
           </div>
         </div>
       </article>
@@ -615,7 +665,7 @@
       $('profileRows').innerHTML = '';
       $('suspectRows').innerHTML = '';
       $('traceRows').innerHTML = '';
-      $('profileComparisonChart').innerHTML = '<div class="chart-empty">Chart akan muncul setelah kedua file diupload dan dianalisis.</div>';
+      $('profileComparisonChart').innerHTML = '<div class="chart-empty">Upload kedua file untuk melihat chart profil STR.</div>';
     }
 
     function renderGroupedProfileChart(state) {
@@ -626,12 +676,12 @@
       ];
       const maxValue = Math.max(1, ...markers.flatMap((marker) => series.map((item) => Number(item.profile[marker] || 0))));
       const yMax = Math.max(5, Math.ceil(maxValue / 2) * 2);
-      const width = Math.max(820, markers.length * 150 + 170);
-      const height = 390;
+      const width = Math.max(760, markers.length * 138 + 160);
+      const height = 340;
       const left = 58;
       const right = 24;
-      const top = 56;
-      const bottom = 82;
+      const top = 50;
+      const bottom = 72;
       const plotWidth = width - left - right;
       const plotHeight = height - top - bottom;
       const groupWidth = plotWidth / markers.length;
@@ -640,8 +690,8 @@
       const tickCount = Math.min(yMax, 6);
       let svg = `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img" aria-label="Profil STR DNA TKP vs tersangka">`;
       svg += '<rect width="100%" height="100%" rx="8" fill="#17327D"></rect>';
-      svg += '<text x="18" y="30" fill="#F7E6D3" font-size="16" font-weight="800" font-family="Inter, Arial">Profil STR DNA TKP vs Tersangka</text>';
-      svg += '<text x="18" y="49" fill="rgba(247,230,211,0.72)" font-size="11" font-family="Inter, Arial">Repeat count per marker</text>';
+      svg += '<text x="18" y="29" fill="#F7E6D3" font-size="15" font-weight="800" font-family="Inter, Arial">Profil STR DNA TKP vs Tersangka</text>';
+      svg += '<text x="18" y="45" fill="rgba(247,230,211,0.72)" font-size="10" font-family="Inter, Arial">Repeat count per marker</text>';
 
       for (let tick = 0; tick <= tickCount; tick += 1) {
         const value = Math.round((yMax / tickCount) * tick);
@@ -653,7 +703,7 @@
       markers.forEach((marker, markerIndex) => {
         const groupLeft = left + markerIndex * groupWidth;
         const center = groupLeft + groupWidth / 2;
-        svg += `<text x="${center}" y="${height - 44}" fill="#F7E6D3" font-size="12" font-weight="800" text-anchor="middle" font-family="Inter, Arial">${escapeHtml(marker)}</text>`;
+        svg += `<text x="${center}" y="${height - 38}" fill="#F7E6D3" font-size="12" font-weight="800" text-anchor="middle" font-family="Inter, Arial">${escapeHtml(marker)}</text>`;
         series.forEach((item, seriesIndex) => {
           const value = Number(item.profile[marker] || 0);
           const x = center - ((series.length * barWidth) + ((series.length - 1) * barGap)) / 2 + seriesIndex * (barWidth + barGap);
