@@ -529,8 +529,16 @@ def build_html_dashboard() -> str:
     .match-card,
     .chart-card,
     .table-card,
+    .analysis-actions,
     footer {
       grid-column: 1 / -1;
+    }
+    .input-page,
+    .analysis-page {
+      display: contents;
+    }
+    .page-hidden {
+      display: none;
     }
     .workspace-header {
       margin-bottom: 16px;
@@ -676,6 +684,25 @@ def build_html_dashboard() -> str:
     button:hover {
       background: #001849;
       transform: translateY(-1px);
+    }
+    .btn-secondary {
+      min-height: 44px;
+      padding: 10px 18px;
+      background: transparent;
+      border: 1px solid var(--primary-container);
+      color: var(--primary-container);
+      box-shadow: none;
+      font-size: 14px;
+      line-height: 20px;
+    }
+    .btn-secondary:hover {
+      background: rgba(32, 68, 148, 0.05);
+      color: var(--primary-container);
+    }
+    .analysis-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: -2px;
     }
     .error {
       display: none;
@@ -907,6 +934,7 @@ def build_html_dashboard() -> str:
       .match-card,
       .chart-card,
       .table-card,
+      .analysis-actions,
       footer,
       .details-grid,
       .profile-card,
@@ -955,13 +983,13 @@ def build_html_dashboard() -> str:
   </div>
 
   <main>
-    <section class="workspace-header">
+    <section id="inputHeader" class="workspace-header">
       <h1>Analysis Workspace</h1>
       <p class="subtitle">Upload forensic data to initiate matching sequences against the suspect database.</p>
       <div class="status-chip"><span class="material-symbols-outlined" style="font-size:16px;">pending</span><span id="analysisStatus">Menunggu file</span></div>
     </section>
 
-    <label class="data-tile upload-zone" id="dnaUploadZone" for="dnaFileInput">
+    <label class="data-tile upload-zone input-page" id="dnaUploadZone" for="dnaFileInput">
       <span class="material-symbols-outlined">biotech</span>
       <h2 class="upload-title">Crime Scene Profile</h2>
       <p class="upload-copy">Select .txt DNA sequence file</p>
@@ -970,7 +998,7 @@ def build_html_dashboard() -> str:
       <span id="dnaFileStatus" class="file-note">Belum ada file DNA TKP.</span>
     </label>
 
-    <label class="data-tile upload-zone" id="suspectUploadZone" for="suspectCsvFileInput">
+    <label class="data-tile upload-zone input-page" id="suspectUploadZone" for="suspectCsvFileInput">
       <span class="material-symbols-outlined">database</span>
       <h2 class="upload-title">Suspect Database</h2>
       <p class="upload-copy">Select .csv suspect database file</p>
@@ -979,7 +1007,7 @@ def build_html_dashboard() -> str:
       <span id="suspectFileStatus" class="file-note">Belum ada file CSV tersangka.</span>
     </label>
 
-    <div class="action-area">
+    <div id="inputActions" class="action-area">
       <button id="analyzeButton" type="button">
         <span class="material-symbols-outlined">play_arrow</span>
         Execute Forensic Analysis
@@ -987,12 +1015,25 @@ def build_html_dashboard() -> str:
     </div>
     <div id="errorBox" class="error" role="alert"></div>
 
-    <section id="resultEmptyState" class="data-tile chart-card">
+    <section id="resultEmptyState" class="data-tile chart-card input-page">
       <h2 class="section-title">Analysis Status</h2>
       <div class="chart-empty">Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.</div>
     </section>
 
-    <section id="resultSummary" class="data-tile match-card is-hidden">
+    <section id="analysisHeader" class="workspace-header analysis-page page-hidden">
+      <h1>Analysis Result</h1>
+      <p class="subtitle">Review STR marker comparison, suspect ranking, and RegEx trace from the uploaded files.</p>
+      <div class="status-chip"><span class="material-symbols-outlined" style="font-size:16px;">verified</span><span id="analysisStatusView">Analisis selesai</span></div>
+    </section>
+
+    <div id="analysisActions" class="analysis-actions analysis-page page-hidden">
+      <button id="restartButton" class="btn-secondary" type="button">
+        <span class="material-symbols-outlined" style="font-size:18px;">restart_alt</span>
+        New Analysis
+      </button>
+    </div>
+
+    <section id="resultSummary" class="data-tile match-card analysis-page page-hidden">
       <div>
         <p class="match-kicker">Primary Match Identified</p>
         <div class="match-name-row">
@@ -1004,14 +1045,14 @@ def build_html_dashboard() -> str:
       <div id="scoreView" class="score-ring">0%</div>
     </section>
 
-    <section class="data-tile chart-card">
+    <section id="chartSection" class="data-tile chart-card analysis-page page-hidden">
       <h2 class="section-title">STR Marker Comparison</h2>
       <div id="profileComparisonChart">
         <div class="chart-empty">Chart akan muncul setelah kedua file diupload dan dianalisis.</div>
       </div>
     </section>
 
-    <section id="detailsSection" class="details-grid is-hidden">
+    <section id="detailsSection" class="details-grid analysis-page page-hidden">
       <article class="data-tile table-card profile-card">
         <div class="table-header">
           <h3>Profil DNA TKP</h3>
@@ -1037,7 +1078,7 @@ def build_html_dashboard() -> str:
       </article>
     </section>
 
-    <section id="traceSection" class="data-tile table-card trace-card is-hidden">
+    <section id="traceSection" class="data-tile table-card trace-card analysis-page page-hidden">
       <div class="table-header secondary">
         <h3>Trace RegEx Patterns</h3>
       </div>
@@ -1214,13 +1255,24 @@ def build_html_dashboard() -> str:
       $('errorBox').style.display = 'none';
     }
 
+    function showInputPage() {
+      document.querySelectorAll('.analysis-page').forEach((element) => element.classList.add('page-hidden'));
+      document.querySelectorAll('.input-page').forEach((element) => element.classList.remove('page-hidden'));
+      $('inputHeader').classList.remove('page-hidden');
+      $('inputActions').classList.remove('page-hidden');
+    }
+
+    function showAnalysisPage() {
+      document.querySelectorAll('.input-page').forEach((element) => element.classList.add('page-hidden'));
+      document.querySelectorAll('.analysis-page').forEach((element) => element.classList.remove('page-hidden'));
+      $('inputHeader').classList.add('page-hidden');
+      $('inputActions').classList.add('page-hidden');
+    }
+
     function renderEmptyState() {
       $('analysisStatus').textContent = 'Menunggu file';
       $('resultEmptyState').classList.remove('is-hidden');
-      $('resultSummary').classList.add('is-hidden');
-      $('resultSummary').classList.remove('is-visible');
-      $('detailsSection').classList.add('is-hidden');
-      $('traceSection').classList.add('is-hidden');
+      showInputPage();
       $('profileRows').innerHTML = '';
       $('suspectRows').innerHTML = '';
       $('traceRows').innerHTML = '';
@@ -1293,11 +1345,10 @@ def build_html_dashboard() -> str:
     function renderState(state) {
       const best = state.ranked[0];
       $('analysisStatus').textContent = 'Analisis selesai';
+      $('analysisStatusView').textContent = 'Analisis selesai';
       $('resultEmptyState').classList.add('is-hidden');
-      $('resultSummary').classList.remove('is-hidden');
       $('resultSummary').classList.add('is-visible');
-      $('detailsSection').classList.remove('is-hidden');
-      $('traceSection').classList.remove('is-hidden');
+      showAnalysisPage();
 
       $('verdictView').textContent = best.isExactMatch ? '100% MATCH' : 'PARTIAL MATCH';
       $('verdictView').className = best.isExactMatch ? 'badge-exact' : 'badge-partial';
@@ -1330,6 +1381,17 @@ def build_html_dashboard() -> str:
         </tr>`;
       }).join('');
       renderGroupedProfileChart(state);
+    }
+
+    function restartAnalysis() {
+      $('dnaFileInput').value = '';
+      $('suspectCsvFileInput').value = '';
+      $('dnaFileStatus').textContent = 'Belum ada file DNA TKP.';
+      $('suspectFileStatus').textContent = 'Belum ada file CSV tersangka.';
+      $('dnaUploadZone').classList.remove('ready');
+      $('suspectUploadZone').classList.remove('ready');
+      clearError();
+      renderEmptyState();
     }
 
     async function runInteractiveAnalysis() {
@@ -1378,6 +1440,7 @@ def build_html_dashboard() -> str:
     });
 
     $('analyzeButton').addEventListener('click', runInteractiveAnalysis);
+    $('restartButton').addEventListener('click', restartAnalysis);
     renderEmptyState();
   </script>
 </body>
