@@ -6,7 +6,7 @@ Program ini mensimulasikan investigasi DNA forensik berbasis Short Tandem Repeat
 
 - `forensic_str.py`: modul utama dan CLI.
 - `data/crime_scene_dna.txt`: sampel DNA TKP sintetis untuk demo.
-- `data/suspects.csv`: database profil STR tersangka.
+- `data/suspects.csv`: database profil STR 10 tersangka.
 - `tests/test_forensic_str.py`: unit test untuk algoritma inti.
 - `output/`: folder hasil analisis setelah program dijalankan.
 
