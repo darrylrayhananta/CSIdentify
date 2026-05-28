@@ -3,18 +3,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from forensic_str import (
-    analyze_case_csv,
+from csidentify import (
     analyze_sequence,
-    build_html_dashboard,
     build_processing_trace,
     find_best_matches,
     find_repeat_runs,
-    load_case_from_csv,
     load_suspects,
     longest_consecutive_repeats,
+    main,
     profile_sequence,
-    save_case_to_csv,
     smith_waterman_local_alignment,
 )
 
@@ -116,6 +113,21 @@ class ForensicStrTests(unittest.TestCase):
         self.assertEqual(result["ranked_suspects"][0]["alignment"]["identity_percent"], 100.0)
         self.assertEqual(result["ranked_suspects"][0]["combined_score_percent"], 100.0)
 
+    def test_analyze_sequence_writes_json_without_terminal_dashboard_artifact(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "suspects.csv"
+            output_dir = Path(tmp_dir) / "out"
+            csv_path.write_text(
+                "Nama,AGAT,AATG,DNA_Sequence\nAlya,2,1,CCAGATAGATTAATG\n",
+                encoding="utf-8",
+            )
+
+            result = analyze_sequence("CCAGATAGATTAATG", csv_path, output_dir)
+
+            self.assertTrue(result["json_path"].exists())
+            self.assertFalse((output_dir / "investigation_dashboard.html").exists())
+            self.assertNotIn("html_path", result)
+
     def test_find_repeat_runs_returns_positions_and_pattern_for_demo_trace(self):
         runs = find_repeat_runs("CCAGATAGATTTAATGAATG", "AGAT")
 
@@ -145,39 +157,29 @@ class ForensicStrTests(unittest.TestCase):
         self.assertEqual(result["sample_profile"], {"AGAT": 2, "AATG": 1})
         self.assertEqual(result["ranked_suspects"][0]["name"], "Alya")
 
-    def test_save_case_to_csv_persists_user_dna_for_later_processing(self):
+    def test_interactive_mode_uses_default_output_and_always_prints_trace(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            case_path = Path(tmp_dir) / "cases.csv"
+            output_dir = Path(tmp_dir) / "output"
+            answers = iter(["1", "data/suspects.csv"])
+            prompts = []
+            lines = []
 
-            case_id = save_case_to_csv(case_path, "TKP Demo", "ccagatagat", "input manual")
-            loaded = load_case_from_csv(case_path, case_id)
+            from csidentify import parse_args, run_interactive
 
-        self.assertEqual(case_id, "CASE-001")
-        self.assertEqual(
-            loaded,
-            {
-                "case_id": "CASE-001",
-                "label": "TKP Demo",
-                "dna_sequence": "CCAGATAGAT",
-                "source": "input manual",
-            },
-        )
-
-    def test_analyze_case_csv_processes_dna_from_case_csv(self):
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            case_path = Path(tmp_dir) / "cases.csv"
-            suspects_path = Path(tmp_dir) / "suspects.csv"
-            suspects_path.write_text(
-                "Nama,AGAT,AATG\nAlya,2,1\nBima,1,1\n",
-                encoding="utf-8",
+            args = parse_args(["--out", str(output_dir), "--no-animation"])
+            run_interactive(
+                args,
+                input_func=lambda prompt: (prompts.append(prompt), next(answers))[1],
+                output_func=lines.append,
             )
-            case_id = save_case_to_csv(case_path, "TKP Demo", "CCAGATAGATTAATG", "test")
 
-            result = analyze_case_csv(case_path, case_id, suspects_path, Path(tmp_dir) / "out")
-
-        self.assertEqual(result["case"]["case_id"], "CASE-001")
-        self.assertEqual(result["sample_profile"], {"AGAT": 2, "AATG": 1})
-        self.assertEqual(result["ranked_suspects"][0]["name"], "Alya")
+            self.assertTrue((output_dir / "analysis_result.json").exists())
+            self.assertFalse(any("CSV kasus" in prompt for prompt in prompts))
+            self.assertFalse(any("Folder output" in prompt for prompt in prompts))
+            self.assertFalse(any("Tampilkan jejak" in prompt for prompt in prompts))
+            self.assertFalse(Path("data/cases.csv").exists())
+            self.assertTrue(any("Analisis DNA dimulai" in line for line in lines))
+            self.assertTrue(any("=== Jejak Processing STR ===" in line for line in lines))
 
     def test_build_processing_trace_explains_marker_scans_and_ranking(self):
         sample = {"AGAT": 2, "AATG": 1}
@@ -194,31 +196,25 @@ class ForensicStrTests(unittest.TestCase):
         self.assertEqual(trace["suspects"][0]["matched_markers"], ["AGAT", "AATG"])
         self.assertIn("AGAT: tersangka 1 vs TKP 2", trace["suspects"][1]["difference_notes"])
 
-    def test_html_dashboard_contains_browser_interactive_analyzer(self):
-        html = build_html_dashboard()
+    def test_main_defaults_to_interactive_mode(self):
+        calls = []
 
-        self.assertIn('id="dnaFileInput"', html)
-        self.assertIn('accept=".txt,text/plain"', html)
-        self.assertIn('id="suspectCsvFileInput"', html)
-        self.assertIn('accept=".csv,text/csv"', html)
-        self.assertIn('id="analyzeButton"', html)
-        self.assertIn("function readFileAsText", html)
-        self.assertIn("function runInteractiveAnalysis", html)
-        self.assertIn("function parseSuspectCsv", html)
-        self.assertIn("DNA_Sequence", html)
-        self.assertIn("function smithWatermanLocalAlignment", html)
-        self.assertIn('id="alignmentSection"', html)
-        self.assertIn('id="alignmentBlock"', html)
-        self.assertIn('id="profileComparisonChart"', html)
-        self.assertIn("function renderGroupedProfileChart", html)
-        self.assertIn("Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.", html)
-        self.assertNotIn('id="dnaInput"', html)
-        self.assertNotIn('id="suspectCsvInput"', html)
-        self.assertNotIn("downloadCaseCsvButton", html)
-        self.assertNotIn("resetButton", html)
-        self.assertNotIn("caseLabelInput", html)
-        self.assertNotIn("Alya", html)
+        main(argv=[], interactive_runner=lambda args: calls.append(args))
 
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(calls[0].batch)
+
+    def test_main_batch_flag_keeps_non_interactive_cli(self):
+        calls = []
+
+        main(
+            argv=["--batch"],
+            interactive_runner=lambda args: self.fail("interactive runner should not be called"),
+            batch_runner=lambda args: calls.append(args),
+        )
+
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(calls[0].batch)
 
 if __name__ == "__main__":
     unittest.main()
