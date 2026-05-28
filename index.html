@@ -6,33 +6,33 @@
   <title>CSIdentify - DNA Analysis Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <style>
     :root {
-      --background: #fff8f5;
-      --surface: #fff8f5;
+      --background: #fff6f1;
+      --surface: #fff6f1;
       --surface-lowest: #ffffff;
-      --surface-low: #fff1e9;
-      --surface-container: #ffeadd;
-      --surface-high: #ffe3d0;
-      --surface-variant: #ffdcc3;
-      --primary: #002d78;
+      --surface-low: #fdeee6;
+      --surface-container: #FDD9C0;
+      --surface-high: #FCBEA7;
+      --surface-variant: #FCBEA7;
+      --primary: #204494;
       --primary-container: #204494;
-      --on-primary-container: #9db6ff;
-      --secondary-container: #e0234d;
+      --on-primary-container: #FDD9C0;
+      --secondary-container: #D61847;
       --on-secondary: #ffffff;
-      --on-background: #2a1708;
-      --on-surface-variant: #444651;
-      --outline: #747683;
-      --outline-variant: #c4c6d3;
-      --error: #ba1a1a;
-      --error-container: #ffdad6;
+      --on-background: #20223a;
+      --on-surface-variant: #9c5a6e;
+      --outline: #CB6B85;
+      --outline-variant: #f0c9bc;
+      --error: #D61847;
+      --error-container: #FDD9C0;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: "Montserrat", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--on-background);
       background: var(--background);
     }
@@ -57,7 +57,7 @@
       border-radius: 4px;
       color: var(--primary-container);
       background: var(--surface-lowest);
-      font: 700 10px/14px "JetBrains Mono", monospace;
+      font: 700 10px/14px "Montserrat", sans-serif;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -120,7 +120,7 @@
       border-radius: 2px;
       background: var(--surface-container);
       color: var(--primary-container);
-      font: 500 12px/16px "JetBrains Mono", monospace;
+      font: 500 12px/16px "Montserrat", sans-serif;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
@@ -188,7 +188,7 @@
       min-height: 18px;
       margin-top: 12px;
       color: var(--on-surface-variant);
-      font: 500 12px/16px "JetBrains Mono", monospace;
+      font: 500 12px/16px "Montserrat", sans-serif;
       overflow-wrap: anywhere;
     }
     input[type="file"] {
@@ -288,7 +288,7 @@
     .table-kicker {
       margin: 0 0 6px;
       color: var(--on-primary-container);
-      font: 500 12px/16px "JetBrains Mono", monospace;
+      font: 500 12px/16px "Montserrat", sans-serif;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
@@ -305,7 +305,7 @@
     .match-meta {
       margin: 8px 0 0;
       color: var(--on-primary-container);
-      font: 500 12px/16px "JetBrains Mono", monospace;
+      font: 500 12px/16px "Montserrat", sans-serif;
     }
     .score-ring {
       flex: 0 0 auto;
@@ -329,7 +329,7 @@
       min-height: 22px;
       padding: 3px 9px;
       border-radius: 2px;
-      font: 700 10px/14px "JetBrains Mono", monospace;
+      font: 700 10px/14px "Montserrat", sans-serif;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
@@ -500,7 +500,7 @@
     th {
       color: var(--on-surface-variant);
       background: var(--surface-lowest);
-      font: 500 12px/16px "JetBrains Mono", monospace;
+      font: 500 12px/16px "Montserrat", sans-serif;
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
@@ -517,7 +517,7 @@
       border-radius: 2px;
       background: var(--surface);
       color: var(--on-surface-variant);
-      font-family: "JetBrains Mono", monospace;
+      font-family: "Montserrat", sans-serif;
       overflow-wrap: anywhere;
     }
     .rank {
@@ -770,7 +770,7 @@
     const $ = (id) => document.getElementById(id);
     const REQUIRED_FILE_MESSAGE = 'Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.';
     const DNA_SEQUENCE_HEADERS = ['dna_sequence', 'dna sequence', 'sequence', 'sekuens_dna', 'sekuens dna'];
-    const CHART_COLORS = ['#204494', '#e0234d', '#7c2c45', '#b3c5ff', '#ffb1c3', '#002d78', '#ffdcc3'];
+    const CHART_COLORS = ['#204494', '#D61847', '#CB6B85', '#FCBEA7', '#FDD9C0', '#3a5fc0', '#a83a5a'];
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (char) => ({
@@ -1103,13 +1103,13 @@
         const value = Math.round((yMax / tickCount) * tick);
         const y = top + plotHeight - (value / yMax) * plotHeight;
         svg += `<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" stroke="#c4c6d3" stroke-opacity="0.58" stroke-width="1"></line>`;
-        svg += `<text x="${left - 14}" y="${y + 4}" fill="#444651" font-size="11" text-anchor="end" font-family="JetBrains Mono, monospace">${value}</text>`;
+        svg += `<text x="${left - 14}" y="${y + 4}" fill="#444651" font-size="11" text-anchor="end" font-family="Montserrat, sans-serif">${value}</text>`;
       }
 
       markers.forEach((marker, markerIndex) => {
         const groupLeft = left + markerIndex * groupWidth;
         const center = groupLeft + groupWidth / 2;
-        svg += `<text x="${center}" y="${height - 34}" fill="#444651" font-size="11" font-weight="700" text-anchor="middle" font-family="JetBrains Mono, monospace">${escapeHtml(marker)}</text>`;
+        svg += `<text x="${center}" y="${height - 34}" fill="#444651" font-size="11" font-weight="700" text-anchor="middle" font-family="Montserrat, sans-serif">${escapeHtml(marker)}</text>`;
         series.forEach((item, seriesIndex) => {
           const value = Number(item.profile[marker] || 0);
           const x = center - ((series.length * barWidth) + ((series.length - 1) * barGap)) / 2 + seriesIndex * (barWidth + barGap);
@@ -1118,9 +1118,9 @@
           const color = CHART_COLORS[seriesIndex % CHART_COLORS.length];
           svg += `<rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="3" fill="${color}"></rect>`;
           if (barHeight > 18) {
-            svg += `<text x="${x + barWidth / 2}" y="${y + 13}" fill="#FFFFFF" font-size="9" font-weight="900" text-anchor="middle" font-family="Inter, Arial">${value}</text>`;
+            svg += `<text x="${x + barWidth / 2}" y="${y + 13}" fill="#FFFFFF" font-size="9" font-weight="900" text-anchor="middle" font-family="Montserrat, sans-serif">${value}</text>`;
           } else {
-            svg += `<text x="${x + barWidth / 2}" y="${Math.max(top + 11, y - 5)}" fill="#2a1708" font-size="9" font-weight="900" text-anchor="middle" font-family="Inter, Arial">${value}</text>`;
+            svg += `<text x="${x + barWidth / 2}" y="${Math.max(top + 11, y - 5)}" fill="#20223a" font-size="9" font-weight="900" text-anchor="middle" font-family="Montserrat, sans-serif">${value}</text>`;
           }
         });
       });
@@ -1131,7 +1131,7 @@
         const color = CHART_COLORS[index % CHART_COLORS.length];
         const label = item.label.length > 16 ? `${item.label.slice(0, 15)}...` : item.label;
         svg += `<rect x="${legendX}" y="${legendY - 10}" width="10" height="10" rx="2" fill="${color}"></rect>`;
-        svg += `<text x="${legendX + 15}" y="${legendY}" fill="#444651" font-size="10" font-family="JetBrains Mono, monospace">${escapeHtml(label)}</text>`;
+        svg += `<text x="${legendX + 15}" y="${legendY}" fill="#444651" font-size="10" font-family="Montserrat, sans-serif">${escapeHtml(label)}</text>`;
         legendX += Math.max(92, label.length * 6 + 32);
       });
 
