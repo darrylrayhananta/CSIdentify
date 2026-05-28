@@ -49,22 +49,17 @@
       gap: 14px;
     }
     .logo-placeholder {
-      display: grid;
-      place-items: center;
-      width: 48px;
-      height: 48px;
-      border: 1px dashed var(--primary-container);
-      border-radius: 4px;
-      color: var(--primary-container);
-      background: var(--surface-lowest);
-      font: 700 10px/14px "Montserrat", sans-serif;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      display: flex;
+      align-items: center;
     }
     .logo-placeholder img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
+      height: 56px;
+      width: auto;
+      max-width: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .logo-placeholder span {
       display: none;
     }
     .brand-name {
@@ -604,7 +599,7 @@
   <div class="brand-area">
     <div class="brand-lockup">
       <div class="logo-placeholder">
-        <img alt="CSIdentify logo" src="">
+        <img alt="CSIdentify logo" src="logo.png">
         <span>Logo</span>
       </div>
       <span class="brand-name">CSIdentify</span>
