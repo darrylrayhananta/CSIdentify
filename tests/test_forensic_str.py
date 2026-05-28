@@ -15,6 +15,7 @@ from forensic_str import (
     longest_consecutive_repeats,
     profile_sequence,
     save_case_to_csv,
+    smith_waterman_local_alignment,
 )
 
 
@@ -64,6 +65,56 @@ class ForensicStrTests(unittest.TestCase):
 
         self.assertEqual(markers, ["AGAT", "AATG"])
         self.assertEqual(suspects, [{"name": "Dara", "profile": {"AGAT": 5, "AATG": 2}}])
+
+    def test_load_suspects_reads_optional_dna_sequence_column(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "suspects.csv"
+            csv_path.write_text(
+                "Nama,AGAT,AATG,DNA_Sequence\nDara,2,1,ccagatagattaatg\n",
+                encoding="utf-8",
+            )
+
+            suspects, markers = load_suspects(csv_path)
+
+        self.assertEqual(markers, ["AGAT", "AATG"])
+        self.assertEqual(
+            suspects,
+            [
+                {
+                    "name": "Dara",
+                    "profile": {"AGAT": 2, "AATG": 1},
+                    "dna_sequence": "CCAGATAGATTAATG",
+                }
+            ],
+        )
+
+    def test_smith_waterman_local_alignment_finds_best_matching_region(self):
+        alignment = smith_waterman_local_alignment("TTAGATAGATCC", "GGAGATAGATGG")
+
+        self.assertEqual(alignment["algorithm"], "Smith-Waterman local alignment")
+        self.assertEqual(alignment["aligned_query"], "AGATAGAT")
+        self.assertEqual(alignment["match_line"], "||||||||")
+        self.assertEqual(alignment["aligned_subject"], "AGATAGAT")
+        self.assertEqual(alignment["score"], 16)
+        self.assertEqual(alignment["identity_percent"], 100.0)
+        self.assertEqual(alignment["query_start"], 2)
+        self.assertEqual(alignment["query_end"], 10)
+
+    def test_analyze_sequence_uses_alignment_to_break_equal_str_profiles(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_path = Path(tmp_dir) / "suspects.csv"
+            csv_path.write_text(
+                "Nama,AGAT,AATG,DNA_Sequence\n"
+                "Bima,2,1,TTTTTTTTTTTTTTT\n"
+                "Alya,2,1,CCAGATAGATTAATG\n",
+                encoding="utf-8",
+            )
+
+            result = analyze_sequence("CCAGATAGATTAATG", csv_path, Path(tmp_dir) / "out")
+
+        self.assertEqual(result["ranked_suspects"][0]["name"], "Alya")
+        self.assertEqual(result["ranked_suspects"][0]["alignment"]["identity_percent"], 100.0)
+        self.assertEqual(result["ranked_suspects"][0]["combined_score_percent"], 100.0)
 
     def test_find_repeat_runs_returns_positions_and_pattern_for_demo_trace(self):
         runs = find_repeat_runs("CCAGATAGATTTAATGAATG", "AGAT")
@@ -154,6 +205,10 @@ class ForensicStrTests(unittest.TestCase):
         self.assertIn("function readFileAsText", html)
         self.assertIn("function runInteractiveAnalysis", html)
         self.assertIn("function parseSuspectCsv", html)
+        self.assertIn("DNA_Sequence", html)
+        self.assertIn("function smithWatermanLocalAlignment", html)
+        self.assertIn('id="alignmentSection"', html)
+        self.assertIn('id="alignmentBlock"', html)
         self.assertIn('id="profileComparisonChart"', html)
         self.assertIn("function renderGroupedProfileChart", html)
         self.assertIn("Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.", html)

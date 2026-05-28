@@ -19,6 +19,7 @@ from typing import Callable, Iterable
 
 Suspect = dict[str, object]
 CASE_FIELDS = ["case_id", "label", "dna_sequence", "source"]
+DNA_SEQUENCE_COLUMNS = {"dna_sequence", "dna sequence", "sequence", "sekuens_dna", "sekuens dna"}
 
 
 def compact_sequence(sequence: str) -> str:
@@ -146,11 +147,120 @@ def profile_sequence(sequence: str, markers: Iterable[str]) -> dict[str, int]:
     return {marker: longest_consecutive_repeats(sequence, marker) for marker in markers}
 
 
+def smith_waterman_local_alignment(
+    query: str,
+    subject: str,
+    match_score: int = 2,
+    mismatch_penalty: int = -1,
+    gap_penalty: int = -2,
+) -> dict[str, object]:
+    """Return the best local alignment between two DNA sequences."""
+    query = validate_dna_sequence(query)
+    subject = validate_dna_sequence(subject)
+    row_count = len(query) + 1
+    column_count = len(subject) + 1
+    scores = [[0] * column_count for _ in range(row_count)]
+    traceback = [[0] * column_count for _ in range(row_count)]
+    best_score = 0
+    best_position = (0, 0)
+
+    for row in range(1, row_count):
+        for column in range(1, column_count):
+            diagonal = scores[row - 1][column - 1] + (
+                match_score if query[row - 1] == subject[column - 1] else mismatch_penalty
+            )
+            up = scores[row - 1][column] + gap_penalty
+            left = scores[row][column - 1] + gap_penalty
+            cell_score = max(0, diagonal, up, left)
+            scores[row][column] = cell_score
+            if cell_score == 0:
+                traceback[row][column] = 0
+            elif cell_score == diagonal:
+                traceback[row][column] = 1
+            elif cell_score == up:
+                traceback[row][column] = 2
+            else:
+                traceback[row][column] = 3
+
+            if cell_score > best_score:
+                best_score = cell_score
+                best_position = (row, column)
+
+    aligned_query: list[str] = []
+    aligned_subject: list[str] = []
+    row, column = best_position
+    query_end = row
+    subject_end = column
+    while row > 0 and column > 0 and scores[row][column] > 0:
+        direction = traceback[row][column]
+        if direction == 1:
+            aligned_query.append(query[row - 1])
+            aligned_subject.append(subject[column - 1])
+            row -= 1
+            column -= 1
+        elif direction == 2:
+            aligned_query.append(query[row - 1])
+            aligned_subject.append("-")
+            row -= 1
+        elif direction == 3:
+            aligned_query.append("-")
+            aligned_subject.append(subject[column - 1])
+            column -= 1
+        else:
+            break
+
+    aligned_query_text = "".join(reversed(aligned_query))
+    aligned_subject_text = "".join(reversed(aligned_subject))
+    match_line = "".join(
+        "|" if left == right and left != "-" else " "
+        for left, right in zip(aligned_query_text, aligned_subject_text)
+    )
+    aligned_length = len(aligned_query_text)
+    matches = match_line.count("|")
+    gaps = aligned_query_text.count("-") + aligned_subject_text.count("-")
+    mismatches = aligned_length - matches - gaps
+    query_aligned_bases = sum(1 for base in aligned_query_text if base != "-")
+    subject_aligned_bases = sum(1 for base in aligned_subject_text if base != "-")
+
+    return {
+        "algorithm": "Smith-Waterman local alignment",
+        "score": best_score,
+        "aligned_query": aligned_query_text,
+        "match_line": match_line,
+        "aligned_subject": aligned_subject_text,
+        "query_start": row,
+        "query_end": query_end,
+        "subject_start": column,
+        "subject_end": subject_end,
+        "aligned_length": aligned_length,
+        "matches": matches,
+        "mismatches": mismatches,
+        "gaps": gaps,
+        "identity_percent": round(100 * matches / aligned_length, 2) if aligned_length else 0.0,
+        "query_coverage_percent": round(100 * query_aligned_bases / len(query), 2),
+        "subject_coverage_percent": round(100 * subject_aligned_bases / len(subject), 2),
+        "scoring": {
+            "match": match_score,
+            "mismatch": mismatch_penalty,
+            "gap": gap_penalty,
+        },
+    }
+
+
+def alignment_support_percent(alignment: dict[str, object]) -> float:
+    """Weight local identity by query coverage to avoid tiny high-identity matches."""
+    return round(
+        float(alignment["identity_percent"]) * float(alignment["query_coverage_percent"]) / 100,
+        2,
+    )
+
+
 def load_suspects(path: str | Path) -> tuple[list[Suspect], list[str]]:
     """Load suspect profiles from a CSV file.
 
     The first column is treated as the suspect name. Remaining columns are STR
-    marker names whose values must be integer repeat counts.
+    marker names whose values must be integer repeat counts. A DNA_Sequence
+    column is optional and is used for sequence alignment.
     """
     with Path(path).open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -158,7 +268,15 @@ def load_suspects(path: str | Path) -> tuple[list[Suspect], list[str]]:
             raise ValueError("CSV must contain a name column and at least one STR marker column")
 
         name_field = reader.fieldnames[0]
-        markers = reader.fieldnames[1:]
+        sequence_field = next(
+            (
+                field
+                for field in reader.fieldnames[1:]
+                if field.strip().lower() in DNA_SEQUENCE_COLUMNS
+            ),
+            None,
+        )
+        markers = [field for field in reader.fieldnames[1:] if field != sequence_field]
         suspects: list[Suspect] = []
         for row_number, row in enumerate(reader, start=2):
             name = (row.get(name_field) or "").strip()
@@ -175,15 +293,24 @@ def load_suspects(path: str | Path) -> tuple[list[Suspect], list[str]]:
                         f"Invalid repeat count for {marker!r} at row {row_number}: {raw_value!r}"
                     ) from exc
 
-            suspects.append({"name": name, "profile": profile})
+            suspect: Suspect = {"name": name, "profile": profile}
+            if sequence_field:
+                raw_sequence = (row.get(sequence_field) or "").strip()
+                if raw_sequence:
+                    suspect["dna_sequence"] = validate_dna_sequence(raw_sequence)
+            suspects.append(suspect)
 
     if not suspects:
         raise ValueError("CSV database does not contain suspect rows")
     return suspects, markers
 
 
-def find_best_matches(sample_profile: dict[str, int], suspects: list[Suspect]) -> list[dict[str, object]]:
-    """Rank suspects by exact STR marker matches and total profile distance."""
+def find_best_matches(
+    sample_profile: dict[str, int],
+    suspects: list[Suspect],
+    sample_sequence: str | None = None,
+) -> list[dict[str, object]]:
+    """Rank suspects by STR profile fit, then local sequence alignment."""
     markers = list(sample_profile.keys())
     ranked: list[dict[str, object]] = []
 
@@ -194,6 +321,19 @@ def find_best_matches(sample_profile: dict[str, int], suspects: list[Suspect]) -
 
         exact_count = sum(sample_profile[m] == int(suspect_profile[m]) for m in markers)
         distance = sum(abs(sample_profile[m] - int(suspect_profile[m])) for m in markers)
+        str_score_percent = round(100 * exact_count / len(markers), 2)
+        alignment: dict[str, object] | None = None
+        sequence_score_percent = 0.0
+        suspect_sequence = suspect.get("dna_sequence")
+        if sample_sequence and isinstance(suspect_sequence, str):
+            alignment = smith_waterman_local_alignment(sample_sequence, suspect_sequence)
+            sequence_score_percent = alignment_support_percent(alignment)
+        combined_score_percent = round(
+            (0.7 * str_score_percent) + (0.3 * sequence_score_percent)
+            if alignment is not None
+            else str_score_percent,
+            2,
+        )
         differences = {
             marker: int(suspect_profile[marker]) - sample_profile[marker]
             for marker in markers
@@ -205,16 +345,26 @@ def find_best_matches(sample_profile: dict[str, int], suspects: list[Suspect]) -
                 "profile": suspect_profile,
                 "matching_markers": exact_count,
                 "marker_count": len(markers),
-                "score_percent": round(100 * exact_count / len(markers), 2),
+                "score_percent": str_score_percent,
+                "str_score_percent": str_score_percent,
                 "distance": distance,
                 "differences": differences,
+                "alignment": alignment,
+                "alignment_score_percent": sequence_score_percent,
+                "combined_score_percent": combined_score_percent,
                 "is_exact_match": exact_count == len(markers),
             }
         )
 
     return sorted(
         ranked,
-        key=lambda item: (-int(item["matching_markers"]), int(item["distance"]), str(item["name"])),
+        key=lambda item: (
+            -float(item["combined_score_percent"]),
+            -int(item["matching_markers"]),
+            int(item["distance"]),
+            -float(item["alignment_score_percent"]),
+            str(item["name"]),
+        ),
     )
 
 
@@ -227,7 +377,7 @@ def analyze_sequence(
     suspects, markers = load_suspects(suspects_path)
     sequence = validate_dna_sequence(dna_sequence)
     sample_profile = profile_sequence(sequence, markers)
-    ranked = find_best_matches(sample_profile, suspects)
+    ranked = find_best_matches(sample_profile, suspects, sequence)
     trace = build_processing_trace(sequence, markers, sample_profile, ranked)
 
     output_path = Path(output_dir)
@@ -322,8 +472,11 @@ def build_processing_trace(
                 "matched_markers": matched_markers,
                 "difference_notes": difference_notes,
                 "score_percent": item["score_percent"],
+                "combined_score_percent": item["combined_score_percent"],
                 "distance": item["distance"],
                 "is_exact_match": item["is_exact_match"],
+                "alignment": item["alignment"],
+                "alignment_score_percent": item["alignment_score_percent"],
             }
         )
 
@@ -372,9 +525,17 @@ def format_processing_trace(trace: dict[str, object]) -> list[str]:
         matched = ", ".join(suspect_trace["matched_markers"]) or "-"
         lines.append(
             f"{index}. {suspect_trace['name']} | skor {suspect_trace['score_percent']}% | "
+            f"gabungan {suspect_trace['combined_score_percent']}% | "
             f"jarak {suspect_trace['distance']} | {status}"
         )
         lines.append(f"   Marker cocok: {matched}")
+        alignment = suspect_trace["alignment"]
+        if isinstance(alignment, dict):
+            lines.append(
+                "   Alignment: "
+                f"score {alignment['score']}, identity {alignment['identity_percent']}%, "
+                f"coverage TKP {alignment['query_coverage_percent']}%"
+            )
         differences = suspect_trace["difference_notes"]
         if differences:
             lines.append("   Selisih: " + "; ".join(differences))
@@ -399,6 +560,14 @@ def print_case_summary(result: dict[str, object], output_func: Callable[[str], N
     output_func("=== Hasil Akhir Investigasi ===")
     output_func(f"Tersangka paling cocok: {best['name']}")
     output_func(f"Skor: {best['matching_markers']}/{best['marker_count']} marker ({best['score_percent']}%)")
+    output_func(f"Skor gabungan STR + alignment: {best['combined_score_percent']}%")
+    alignment = best.get("alignment")
+    if isinstance(alignment, dict):
+        output_func(
+            "Alignment lokal: "
+            f"score {alignment['score']}, identity {alignment['identity_percent']}%, "
+            f"coverage TKP {alignment['query_coverage_percent']}%"
+        )
     output_func(f"Exact match: {'YES' if best['is_exact_match'] else 'NO'}")
     output_func(f"Dashboard: {result['html_path']}")
     output_func(f"JSON: {result['json_path']}")
@@ -842,9 +1011,49 @@ def build_html_dashboard() -> str:
     .trace-card {
       grid-column: 1 / -1;
     }
+    .alignment-card {
+      grid-column: 1 / -1;
+    }
     .table-card {
       margin-top: 16px;
       overflow: hidden;
+    }
+    .alignment-body {
+      padding: 16px;
+    }
+    .alignment-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric-tile {
+      padding: 12px;
+      border: 1px solid var(--outline-variant);
+      background: var(--surface);
+    }
+    .metric-label {
+      margin: 0 0 4px;
+      color: var(--on-surface-variant);
+      font: 500 11px/15px "JetBrains Mono", monospace;
+      text-transform: uppercase;
+    }
+    .metric-value {
+      margin: 0;
+      color: var(--primary);
+      font-size: 20px;
+      line-height: 28px;
+      font-weight: 800;
+    }
+    .alignment-block {
+      margin: 0;
+      padding: 14px;
+      overflow-x: auto;
+      border: 1px solid var(--outline-variant);
+      background: #ffffff;
+      color: var(--on-background);
+      font: 700 13px/22px "JetBrains Mono", monospace;
+      white-space: pre;
     }
     .table-header {
       padding: 16px;
@@ -945,6 +1154,7 @@ def build_html_dashboard() -> str:
       .details-grid,
       .profile-card,
       .ranking-card,
+      .alignment-card,
       .trace-card {
         grid-column: 1 / -1;
       }
@@ -976,6 +1186,9 @@ def build_html_dashboard() -> str:
       }
       th, td {
         padding: 12px;
+      }
+      .alignment-metrics {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -1026,7 +1239,7 @@ def build_html_dashboard() -> str:
 
     <section id="analysisHeader" class="workspace-header analysis-page page-hidden">
       <h1>Analysis Result</h1>
-      <p class="subtitle">Review STR marker comparison, suspect ranking, and RegEx trace from the uploaded files.</p>
+      <p class="subtitle">Review STR marker comparison, Smith-Waterman local alignment, suspect ranking, and RegEx trace from the uploaded files.</p>
       <div class="status-chip"><span class="material-symbols-outlined" style="font-size:16px;">verified</span><span id="analysisStatusView">Analisis selesai</span></div>
     </section>
 
@@ -1044,7 +1257,7 @@ def build_html_dashboard() -> str:
           <span id="bestNameView">-</span>
           <span id="verdictView" class="badge-exact">READY</span>
         </div>
-        <p class="match-meta">Marker cocok: <span id="matchedView">0/0</span> | Distance: <span id="distanceView">0</span></p>
+        <p class="match-meta">Marker cocok: <span id="matchedView">0/0</span> | STR: <span id="strScoreView">0%</span> | Alignment: <span id="alignmentScoreView">0%</span> | Distance: <span id="distanceView">0</span></p>
       </div>
       <div id="scoreView" class="score-ring">0%</div>
     </section>
@@ -1053,6 +1266,33 @@ def build_html_dashboard() -> str:
       <h2 class="section-title">STR Marker Comparison</h2>
       <div id="profileComparisonChart">
         <div class="chart-empty">Chart akan muncul setelah kedua file diupload dan dianalisis.</div>
+      </div>
+    </section>
+
+    <section id="alignmentSection" class="data-tile table-card alignment-card analysis-page page-hidden">
+      <div class="table-header primary">
+        <h3>Smith-Waterman Local Alignment</h3>
+      </div>
+      <div class="alignment-body">
+        <div class="alignment-metrics">
+          <div class="metric-tile">
+            <p class="metric-label">Alignment score</p>
+            <p id="alignmentRawScoreView" class="metric-value">0</p>
+          </div>
+          <div class="metric-tile">
+            <p class="metric-label">Identity</p>
+            <p id="alignmentIdentityView" class="metric-value">0%</p>
+          </div>
+          <div class="metric-tile">
+            <p class="metric-label">Coverage TKP</p>
+            <p id="alignmentCoverageView" class="metric-value">0%</p>
+          </div>
+          <div class="metric-tile">
+            <p class="metric-label">Algorithm</p>
+            <p id="alignmentAlgorithmView" class="metric-value">SW</p>
+          </div>
+        </div>
+        <pre id="alignmentBlock" class="alignment-block">Upload CSV dengan kolom DNA_Sequence untuk melihat alignment.</pre>
       </div>
     </section>
 
@@ -1075,7 +1315,7 @@ def build_html_dashboard() -> str:
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Rank</th><th>Suspect Name</th><th>Matched</th><th>Score</th><th>Distance</th><th>Status</th></tr></thead>
+            <thead><tr><th>Rank</th><th>Suspect Name</th><th>Matched</th><th>STR</th><th>Alignment</th><th>Combined</th><th>Status</th></tr></thead>
             <tbody id="suspectRows"></tbody>
           </table>
         </div>
@@ -1100,6 +1340,7 @@ def build_html_dashboard() -> str:
   <script>
     const $ = (id) => document.getElementById(id);
     const REQUIRED_FILE_MESSAGE = 'Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.';
+    const DNA_SEQUENCE_HEADERS = ['dna_sequence', 'dna sequence', 'sequence', 'sekuens_dna', 'sekuens dna'];
     const CHART_COLORS = ['#204494', '#e0234d', '#7c2c45', '#b3c5ff', '#ffb1c3', '#002d78', '#ffdcc3'];
 
     function escapeHtml(value) {
@@ -1162,7 +1403,13 @@ def build_html_dashboard() -> str:
       }
       const headers = parseCsvLine(lines[0]);
       const nameHeader = headers[0] ? headers[0].toLowerCase() : '';
-      const markers = headers.slice(1).map((marker) => marker.trim()).filter(Boolean);
+      const sequenceColumnIndex = headers.findIndex((header, index) => (
+        index > 0 && DNA_SEQUENCE_HEADERS.includes(header.trim().toLowerCase())
+      ));
+      const markerColumns = headers
+        .map((header, index) => ({ header: header.trim(), index }))
+        .filter((column) => column.index > 0 && column.index !== sequenceColumnIndex && column.header);
+      const markers = markerColumns.map((column) => column.header);
       if (!['nama', 'name', 'tersangka', 'suspect'].includes(nameHeader)) {
         throw new Error('Kolom pertama CSV harus berisi nama tersangka.');
       }
@@ -1177,15 +1424,20 @@ def build_html_dashboard() -> str:
           throw new Error(`Nama tersangka kosong di baris ${rowNumber}.`);
         }
         const profile = {};
-        markers.forEach((marker, markerIndex) => {
-          const rawValue = cells[markerIndex + 1];
+        markerColumns.forEach((column) => {
+          const rawValue = cells[column.index];
           const value = Number.parseInt(rawValue, 10);
           if (!Number.isInteger(value) || value < 0) {
-            throw new Error(`Nilai marker ${marker} invalid di baris ${rowNumber}.`);
+            throw new Error(`Nilai marker ${column.header} invalid di baris ${rowNumber}.`);
           }
-          profile[marker] = value;
+          profile[column.header] = value;
         });
-        return { name, profile };
+        const rawSequence = sequenceColumnIndex > -1 ? cells[sequenceColumnIndex] : '';
+        return {
+          name,
+          profile,
+          dnaSequence: rawSequence ? validateDna(rawSequence) : null,
+        };
       });
       return { markers, suspects };
     }
@@ -1225,25 +1477,133 @@ def build_html_dashboard() -> str:
       return { profile, trace };
     }
 
-    function rankSuspects(sampleProfile, suspects, markers) {
+    function smithWatermanLocalAlignment(queryInput, subjectInput, matchScore = 2, mismatchPenalty = -1, gapPenalty = -2) {
+      const query = validateDna(queryInput);
+      const subject = validateDna(subjectInput);
+      const rowCount = query.length + 1;
+      const columnCount = subject.length + 1;
+      const scores = Array.from({ length: rowCount }, () => Array(columnCount).fill(0));
+      const traceback = Array.from({ length: rowCount }, () => Array(columnCount).fill(0));
+      let bestScore = 0;
+      let bestRow = 0;
+      let bestColumn = 0;
+
+      for (let row = 1; row < rowCount; row += 1) {
+        for (let column = 1; column < columnCount; column += 1) {
+          const diagonal = scores[row - 1][column - 1] + (query[row - 1] === subject[column - 1] ? matchScore : mismatchPenalty);
+          const up = scores[row - 1][column] + gapPenalty;
+          const left = scores[row][column - 1] + gapPenalty;
+          const cellScore = Math.max(0, diagonal, up, left);
+          scores[row][column] = cellScore;
+          if (cellScore === 0) {
+            traceback[row][column] = 0;
+          } else if (cellScore === diagonal) {
+            traceback[row][column] = 1;
+          } else if (cellScore === up) {
+            traceback[row][column] = 2;
+          } else {
+            traceback[row][column] = 3;
+          }
+          if (cellScore > bestScore) {
+            bestScore = cellScore;
+            bestRow = row;
+            bestColumn = column;
+          }
+        }
+      }
+
+      const alignedQuery = [];
+      const alignedSubject = [];
+      let row = bestRow;
+      let column = bestColumn;
+      const queryEnd = row;
+      const subjectEnd = column;
+      while (row > 0 && column > 0 && scores[row][column] > 0) {
+        const direction = traceback[row][column];
+        if (direction === 1) {
+          alignedQuery.push(query[row - 1]);
+          alignedSubject.push(subject[column - 1]);
+          row -= 1;
+          column -= 1;
+        } else if (direction === 2) {
+          alignedQuery.push(query[row - 1]);
+          alignedSubject.push('-');
+          row -= 1;
+        } else if (direction === 3) {
+          alignedQuery.push('-');
+          alignedSubject.push(subject[column - 1]);
+          column -= 1;
+        } else {
+          break;
+        }
+      }
+
+      const alignedQueryText = alignedQuery.reverse().join('');
+      const alignedSubjectText = alignedSubject.reverse().join('');
+      const matchLine = [...alignedQueryText].map((base, index) => (
+        base === alignedSubjectText[index] && base !== '-' ? '|' : ' '
+      )).join('');
+      const alignedLength = alignedQueryText.length;
+      const matches = [...matchLine].filter((char) => char === '|').length;
+      const gaps = [...alignedQueryText, ...alignedSubjectText].filter((char) => char === '-').length;
+      const queryAlignedBases = [...alignedQueryText].filter((base) => base !== '-').length;
+      const subjectAlignedBases = [...alignedSubjectText].filter((base) => base !== '-').length;
+
+      return {
+        algorithm: 'Smith-Waterman local alignment',
+        score: bestScore,
+        alignedQuery: alignedQueryText,
+        matchLine,
+        alignedSubject: alignedSubjectText,
+        queryStart: row,
+        queryEnd,
+        subjectStart: column,
+        subjectEnd,
+        alignedLength,
+        matches,
+        mismatches: alignedLength - matches - gaps,
+        gaps,
+        identityPercent: alignedLength ? Math.round((matches / alignedLength) * 10000) / 100 : 0,
+        queryCoveragePercent: Math.round((queryAlignedBases / query.length) * 10000) / 100,
+        subjectCoveragePercent: Math.round((subjectAlignedBases / subject.length) * 10000) / 100,
+      };
+    }
+
+    function alignmentSupportPercent(alignment) {
+      return Math.round((alignment.identityPercent * alignment.queryCoveragePercent) * 100) / 10000;
+    }
+
+    function rankSuspects(sampleProfile, suspects, markers, sampleSequence) {
       return suspects.map((suspect) => {
         const matchedMarkers = markers.filter((marker) => suspect.profile[marker] === sampleProfile[marker]);
         const distance = markers.reduce((sum, marker) => (
           sum + Math.abs((suspect.profile[marker] || 0) - (sampleProfile[marker] || 0))
         ), 0);
         const scorePercent = Math.round((matchedMarkers.length / markers.length) * 10000) / 100;
+        const alignment = sampleSequence && suspect.dnaSequence
+          ? smithWatermanLocalAlignment(sampleSequence, suspect.dnaSequence)
+          : null;
+        const alignmentScorePercent = alignment ? alignmentSupportPercent(alignment) : 0;
+        const combinedScorePercent = alignment
+          ? Math.round(((0.7 * scorePercent) + (0.3 * alignmentScorePercent)) * 100) / 100
+          : scorePercent;
         return {
           name: suspect.name,
           profile: suspect.profile,
           matchingMarkers: matchedMarkers.length,
           markerCount: markers.length,
           scorePercent,
+          alignment,
+          alignmentScorePercent,
+          combinedScorePercent,
           distance,
           isExactMatch: matchedMarkers.length === markers.length,
         };
       }).sort((left, right) => (
-        right.matchingMarkers - left.matchingMarkers
+        right.combinedScorePercent - left.combinedScorePercent
+        || right.matchingMarkers - left.matchingMarkers
         || left.distance - right.distance
+        || right.alignmentScorePercent - left.alignmentScorePercent
         || left.name.localeCompare(right.name)
       ));
     }
@@ -1279,6 +1639,7 @@ def build_html_dashboard() -> str:
       $('profileRows').innerHTML = '';
       $('suspectRows').innerHTML = '';
       $('traceRows').innerHTML = '';
+      $('alignmentBlock').textContent = 'Upload CSV dengan kolom DNA_Sequence untuk melihat alignment.';
       $('profileComparisonChart').innerHTML = '<div class="chart-empty">Upload kedua file untuk melihat chart profil STR.</div>';
     }
 
@@ -1355,9 +1716,30 @@ def build_html_dashboard() -> str:
       $('verdictView').textContent = best.isExactMatch ? '100% MATCH' : 'PARTIAL MATCH';
       $('verdictView').className = best.isExactMatch ? 'badge-exact' : 'badge-partial';
       $('bestNameView').textContent = best.name;
-      $('scoreView').textContent = `${best.scorePercent}%`;
+      $('scoreView').textContent = `${best.combinedScorePercent}%`;
       $('matchedView').textContent = `${best.matchingMarkers}/${best.markerCount}`;
+      $('strScoreView').textContent = `${best.scorePercent}%`;
+      $('alignmentScoreView').textContent = `${best.alignmentScorePercent}%`;
       $('distanceView').textContent = String(best.distance);
+      if (best.alignment) {
+        $('alignmentRawScoreView').textContent = String(best.alignment.score);
+        $('alignmentIdentityView').textContent = `${best.alignment.identityPercent}%`;
+        $('alignmentCoverageView').textContent = `${best.alignment.queryCoveragePercent}%`;
+        $('alignmentAlgorithmView').textContent = 'SW local';
+        $('alignmentBlock').textContent = [
+          `TKP        ${best.alignment.alignedQuery}`,
+          `           ${best.alignment.matchLine}`,
+          `Tersangka  ${best.alignment.alignedSubject}`,
+          '',
+          `Region TKP: ${best.alignment.queryStart}-${best.alignment.queryEnd} | Region tersangka: ${best.alignment.subjectStart}-${best.alignment.subjectEnd}`,
+        ].join('\n');
+      } else {
+        $('alignmentRawScoreView').textContent = '0';
+        $('alignmentIdentityView').textContent = '0%';
+        $('alignmentCoverageView').textContent = '0%';
+        $('alignmentAlgorithmView').textContent = 'SW local';
+        $('alignmentBlock').textContent = 'CSV tersangka belum memiliki kolom DNA_Sequence, sehingga ranking hanya memakai profil STR.';
+      }
       $('profileRows').innerHTML = state.markers.map((marker) => (
         `<tr><td><strong>${escapeHtml(marker)}</strong></td><td>${state.sampleProfile[marker]}</td></tr>`
       )).join('');
@@ -1367,7 +1749,8 @@ def build_html_dashboard() -> str:
           <td><strong>${escapeHtml(item.name)}</strong></td>
           <td>${item.matchingMarkers}/${item.markerCount}</td>
           <td>${item.scorePercent}%</td>
-          <td>${item.distance}</td>
+          <td>${item.alignmentScorePercent}%</td>
+          <td>${item.combinedScorePercent}%</td>
           <td><span class="${item.isExactMatch ? 'badge-exact' : 'badge-partial'}">${item.isExactMatch ? 'Exact match' : 'Partial match'}</span></td>
         </tr>`
       )).join('');
@@ -1413,7 +1796,7 @@ def build_html_dashboard() -> str:
         const sequence = validateDna(dnaText);
         const parsed = parseSuspectCsv(suspectCsvText);
         const profiled = profileSequence(sequence, parsed.markers);
-        const ranked = rankSuspects(profiled.profile, parsed.suspects, parsed.markers);
+        const ranked = rankSuspects(profiled.profile, parsed.suspects, parsed.markers, sequence);
         renderState({
           markers: parsed.markers,
           sampleProfile: profiled.profile,

@@ -390,9 +390,49 @@
     .trace-card {
       grid-column: 1 / -1;
     }
+    .alignment-card {
+      grid-column: 1 / -1;
+    }
     .table-card {
       margin-top: 16px;
       overflow: hidden;
+    }
+    .alignment-body {
+      padding: 16px;
+    }
+    .alignment-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric-tile {
+      padding: 12px;
+      border: 1px solid var(--outline-variant);
+      background: var(--surface);
+    }
+    .metric-label {
+      margin: 0 0 4px;
+      color: var(--on-surface-variant);
+      font: 500 11px/15px "JetBrains Mono", monospace;
+      text-transform: uppercase;
+    }
+    .metric-value {
+      margin: 0;
+      color: var(--primary);
+      font-size: 20px;
+      line-height: 28px;
+      font-weight: 800;
+    }
+    .alignment-block {
+      margin: 0;
+      padding: 14px;
+      overflow-x: auto;
+      border: 1px solid var(--outline-variant);
+      background: #ffffff;
+      color: var(--on-background);
+      font: 700 13px/22px "JetBrains Mono", monospace;
+      white-space: pre;
     }
     .table-header {
       padding: 16px;
@@ -493,6 +533,7 @@
       .details-grid,
       .profile-card,
       .ranking-card,
+      .alignment-card,
       .trace-card {
         grid-column: 1 / -1;
       }
@@ -524,6 +565,9 @@
       }
       th, td {
         padding: 12px;
+      }
+      .alignment-metrics {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -574,7 +618,7 @@
 
     <section id="analysisHeader" class="workspace-header analysis-page page-hidden">
       <h1>Analysis Result</h1>
-      <p class="subtitle">Review STR marker comparison, suspect ranking, and RegEx trace from the uploaded files.</p>
+      <p class="subtitle">Review STR marker comparison, Smith-Waterman local alignment, suspect ranking, and RegEx trace from the uploaded files.</p>
       <div class="status-chip"><span class="material-symbols-outlined" style="font-size:16px;">verified</span><span id="analysisStatusView">Analisis selesai</span></div>
     </section>
 
@@ -592,7 +636,7 @@
           <span id="bestNameView">-</span>
           <span id="verdictView" class="badge-exact">READY</span>
         </div>
-        <p class="match-meta">Marker cocok: <span id="matchedView">0/0</span> | Distance: <span id="distanceView">0</span></p>
+        <p class="match-meta">Marker cocok: <span id="matchedView">0/0</span> | STR: <span id="strScoreView">0%</span> | Alignment: <span id="alignmentScoreView">0%</span> | Distance: <span id="distanceView">0</span></p>
       </div>
       <div id="scoreView" class="score-ring">0%</div>
     </section>
@@ -601,6 +645,33 @@
       <h2 class="section-title">STR Marker Comparison</h2>
       <div id="profileComparisonChart">
         <div class="chart-empty">Chart akan muncul setelah kedua file diupload dan dianalisis.</div>
+      </div>
+    </section>
+
+    <section id="alignmentSection" class="data-tile table-card alignment-card analysis-page page-hidden">
+      <div class="table-header primary">
+        <h3>Smith-Waterman Local Alignment</h3>
+      </div>
+      <div class="alignment-body">
+        <div class="alignment-metrics">
+          <div class="metric-tile">
+            <p class="metric-label">Alignment score</p>
+            <p id="alignmentRawScoreView" class="metric-value">0</p>
+          </div>
+          <div class="metric-tile">
+            <p class="metric-label">Identity</p>
+            <p id="alignmentIdentityView" class="metric-value">0%</p>
+          </div>
+          <div class="metric-tile">
+            <p class="metric-label">Coverage TKP</p>
+            <p id="alignmentCoverageView" class="metric-value">0%</p>
+          </div>
+          <div class="metric-tile">
+            <p class="metric-label">Algorithm</p>
+            <p id="alignmentAlgorithmView" class="metric-value">SW</p>
+          </div>
+        </div>
+        <pre id="alignmentBlock" class="alignment-block">Upload CSV dengan kolom DNA_Sequence untuk melihat alignment.</pre>
       </div>
     </section>
 
@@ -623,7 +694,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Rank</th><th>Suspect Name</th><th>Matched</th><th>Score</th><th>Distance</th><th>Status</th></tr></thead>
+            <thead><tr><th>Rank</th><th>Suspect Name</th><th>Matched</th><th>STR</th><th>Alignment</th><th>Combined</th><th>Status</th></tr></thead>
             <tbody id="suspectRows"></tbody>
           </table>
         </div>
@@ -648,6 +719,7 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const REQUIRED_FILE_MESSAGE = 'Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.';
+    const DNA_SEQUENCE_HEADERS = ['dna_sequence', 'dna sequence', 'sequence', 'sekuens_dna', 'sekuens dna'];
     const CHART_COLORS = ['#204494', '#e0234d', '#7c2c45', '#b3c5ff', '#ffb1c3', '#002d78', '#ffdcc3'];
 
     function escapeHtml(value) {
@@ -710,7 +782,13 @@
       }
       const headers = parseCsvLine(lines[0]);
       const nameHeader = headers[0] ? headers[0].toLowerCase() : '';
-      const markers = headers.slice(1).map((marker) => marker.trim()).filter(Boolean);
+      const sequenceColumnIndex = headers.findIndex((header, index) => (
+        index > 0 && DNA_SEQUENCE_HEADERS.includes(header.trim().toLowerCase())
+      ));
+      const markerColumns = headers
+        .map((header, index) => ({ header: header.trim(), index }))
+        .filter((column) => column.index > 0 && column.index !== sequenceColumnIndex && column.header);
+      const markers = markerColumns.map((column) => column.header);
       if (!['nama', 'name', 'tersangka', 'suspect'].includes(nameHeader)) {
         throw new Error('Kolom pertama CSV harus berisi nama tersangka.');
       }
@@ -725,15 +803,20 @@
           throw new Error(`Nama tersangka kosong di baris ${rowNumber}.`);
         }
         const profile = {};
-        markers.forEach((marker, markerIndex) => {
-          const rawValue = cells[markerIndex + 1];
+        markerColumns.forEach((column) => {
+          const rawValue = cells[column.index];
           const value = Number.parseInt(rawValue, 10);
           if (!Number.isInteger(value) || value < 0) {
-            throw new Error(`Nilai marker ${marker} invalid di baris ${rowNumber}.`);
+            throw new Error(`Nilai marker ${column.header} invalid di baris ${rowNumber}.`);
           }
-          profile[marker] = value;
+          profile[column.header] = value;
         });
-        return { name, profile };
+        const rawSequence = sequenceColumnIndex > -1 ? cells[sequenceColumnIndex] : '';
+        return {
+          name,
+          profile,
+          dnaSequence: rawSequence ? validateDna(rawSequence) : null,
+        };
       });
       return { markers, suspects };
     }
@@ -773,25 +856,133 @@
       return { profile, trace };
     }
 
-    function rankSuspects(sampleProfile, suspects, markers) {
+    function smithWatermanLocalAlignment(queryInput, subjectInput, matchScore = 2, mismatchPenalty = -1, gapPenalty = -2) {
+      const query = validateDna(queryInput);
+      const subject = validateDna(subjectInput);
+      const rowCount = query.length + 1;
+      const columnCount = subject.length + 1;
+      const scores = Array.from({ length: rowCount }, () => Array(columnCount).fill(0));
+      const traceback = Array.from({ length: rowCount }, () => Array(columnCount).fill(0));
+      let bestScore = 0;
+      let bestRow = 0;
+      let bestColumn = 0;
+
+      for (let row = 1; row < rowCount; row += 1) {
+        for (let column = 1; column < columnCount; column += 1) {
+          const diagonal = scores[row - 1][column - 1] + (query[row - 1] === subject[column - 1] ? matchScore : mismatchPenalty);
+          const up = scores[row - 1][column] + gapPenalty;
+          const left = scores[row][column - 1] + gapPenalty;
+          const cellScore = Math.max(0, diagonal, up, left);
+          scores[row][column] = cellScore;
+          if (cellScore === 0) {
+            traceback[row][column] = 0;
+          } else if (cellScore === diagonal) {
+            traceback[row][column] = 1;
+          } else if (cellScore === up) {
+            traceback[row][column] = 2;
+          } else {
+            traceback[row][column] = 3;
+          }
+          if (cellScore > bestScore) {
+            bestScore = cellScore;
+            bestRow = row;
+            bestColumn = column;
+          }
+        }
+      }
+
+      const alignedQuery = [];
+      const alignedSubject = [];
+      let row = bestRow;
+      let column = bestColumn;
+      const queryEnd = row;
+      const subjectEnd = column;
+      while (row > 0 && column > 0 && scores[row][column] > 0) {
+        const direction = traceback[row][column];
+        if (direction === 1) {
+          alignedQuery.push(query[row - 1]);
+          alignedSubject.push(subject[column - 1]);
+          row -= 1;
+          column -= 1;
+        } else if (direction === 2) {
+          alignedQuery.push(query[row - 1]);
+          alignedSubject.push('-');
+          row -= 1;
+        } else if (direction === 3) {
+          alignedQuery.push('-');
+          alignedSubject.push(subject[column - 1]);
+          column -= 1;
+        } else {
+          break;
+        }
+      }
+
+      const alignedQueryText = alignedQuery.reverse().join('');
+      const alignedSubjectText = alignedSubject.reverse().join('');
+      const matchLine = [...alignedQueryText].map((base, index) => (
+        base === alignedSubjectText[index] && base !== '-' ? '|' : ' '
+      )).join('');
+      const alignedLength = alignedQueryText.length;
+      const matches = [...matchLine].filter((char) => char === '|').length;
+      const gaps = [...alignedQueryText, ...alignedSubjectText].filter((char) => char === '-').length;
+      const queryAlignedBases = [...alignedQueryText].filter((base) => base !== '-').length;
+      const subjectAlignedBases = [...alignedSubjectText].filter((base) => base !== '-').length;
+
+      return {
+        algorithm: 'Smith-Waterman local alignment',
+        score: bestScore,
+        alignedQuery: alignedQueryText,
+        matchLine,
+        alignedSubject: alignedSubjectText,
+        queryStart: row,
+        queryEnd,
+        subjectStart: column,
+        subjectEnd,
+        alignedLength,
+        matches,
+        mismatches: alignedLength - matches - gaps,
+        gaps,
+        identityPercent: alignedLength ? Math.round((matches / alignedLength) * 10000) / 100 : 0,
+        queryCoveragePercent: Math.round((queryAlignedBases / query.length) * 10000) / 100,
+        subjectCoveragePercent: Math.round((subjectAlignedBases / subject.length) * 10000) / 100,
+      };
+    }
+
+    function alignmentSupportPercent(alignment) {
+      return Math.round((alignment.identityPercent * alignment.queryCoveragePercent) * 100) / 10000;
+    }
+
+    function rankSuspects(sampleProfile, suspects, markers, sampleSequence) {
       return suspects.map((suspect) => {
         const matchedMarkers = markers.filter((marker) => suspect.profile[marker] === sampleProfile[marker]);
         const distance = markers.reduce((sum, marker) => (
           sum + Math.abs((suspect.profile[marker] || 0) - (sampleProfile[marker] || 0))
         ), 0);
         const scorePercent = Math.round((matchedMarkers.length / markers.length) * 10000) / 100;
+        const alignment = sampleSequence && suspect.dnaSequence
+          ? smithWatermanLocalAlignment(sampleSequence, suspect.dnaSequence)
+          : null;
+        const alignmentScorePercent = alignment ? alignmentSupportPercent(alignment) : 0;
+        const combinedScorePercent = alignment
+          ? Math.round(((0.7 * scorePercent) + (0.3 * alignmentScorePercent)) * 100) / 100
+          : scorePercent;
         return {
           name: suspect.name,
           profile: suspect.profile,
           matchingMarkers: matchedMarkers.length,
           markerCount: markers.length,
           scorePercent,
+          alignment,
+          alignmentScorePercent,
+          combinedScorePercent,
           distance,
           isExactMatch: matchedMarkers.length === markers.length,
         };
       }).sort((left, right) => (
-        right.matchingMarkers - left.matchingMarkers
+        right.combinedScorePercent - left.combinedScorePercent
+        || right.matchingMarkers - left.matchingMarkers
         || left.distance - right.distance
+        || right.alignmentScorePercent - left.alignmentScorePercent
         || left.name.localeCompare(right.name)
       ));
     }
@@ -827,6 +1018,7 @@
       $('profileRows').innerHTML = '';
       $('suspectRows').innerHTML = '';
       $('traceRows').innerHTML = '';
+      $('alignmentBlock').textContent = 'Upload CSV dengan kolom DNA_Sequence untuk melihat alignment.';
       $('profileComparisonChart').innerHTML = '<div class="chart-empty">Upload kedua file untuk melihat chart profil STR.</div>';
     }
 
@@ -903,9 +1095,30 @@
       $('verdictView').textContent = best.isExactMatch ? '100% MATCH' : 'PARTIAL MATCH';
       $('verdictView').className = best.isExactMatch ? 'badge-exact' : 'badge-partial';
       $('bestNameView').textContent = best.name;
-      $('scoreView').textContent = `${best.scorePercent}%`;
+      $('scoreView').textContent = `${best.combinedScorePercent}%`;
       $('matchedView').textContent = `${best.matchingMarkers}/${best.markerCount}`;
+      $('strScoreView').textContent = `${best.scorePercent}%`;
+      $('alignmentScoreView').textContent = `${best.alignmentScorePercent}%`;
       $('distanceView').textContent = String(best.distance);
+      if (best.alignment) {
+        $('alignmentRawScoreView').textContent = String(best.alignment.score);
+        $('alignmentIdentityView').textContent = `${best.alignment.identityPercent}%`;
+        $('alignmentCoverageView').textContent = `${best.alignment.queryCoveragePercent}%`;
+        $('alignmentAlgorithmView').textContent = 'SW local';
+        $('alignmentBlock').textContent = [
+          `TKP        ${best.alignment.alignedQuery}`,
+          `           ${best.alignment.matchLine}`,
+          `Tersangka  ${best.alignment.alignedSubject}`,
+          '',
+          `Region TKP: ${best.alignment.queryStart}-${best.alignment.queryEnd} | Region tersangka: ${best.alignment.subjectStart}-${best.alignment.subjectEnd}`,
+        ].join('\n');
+      } else {
+        $('alignmentRawScoreView').textContent = '0';
+        $('alignmentIdentityView').textContent = '0%';
+        $('alignmentCoverageView').textContent = '0%';
+        $('alignmentAlgorithmView').textContent = 'SW local';
+        $('alignmentBlock').textContent = 'CSV tersangka belum memiliki kolom DNA_Sequence, sehingga ranking hanya memakai profil STR.';
+      }
       $('profileRows').innerHTML = state.markers.map((marker) => (
         `<tr><td><strong>${escapeHtml(marker)}</strong></td><td>${state.sampleProfile[marker]}</td></tr>`
       )).join('');
@@ -915,7 +1128,8 @@
           <td><strong>${escapeHtml(item.name)}</strong></td>
           <td>${item.matchingMarkers}/${item.markerCount}</td>
           <td>${item.scorePercent}%</td>
-          <td>${item.distance}</td>
+          <td>${item.alignmentScorePercent}%</td>
+          <td>${item.combinedScorePercent}%</td>
           <td><span class="${item.isExactMatch ? 'badge-exact' : 'badge-partial'}">${item.isExactMatch ? 'Exact match' : 'Partial match'}</span></td>
         </tr>`
       )).join('');
@@ -961,7 +1175,7 @@
         const sequence = validateDna(dnaText);
         const parsed = parseSuspectCsv(suspectCsvText);
         const profiled = profileSequence(sequence, parsed.markers);
-        const ranked = rankSuspects(profiled.profile, parsed.suspects, parsed.markers);
+        const ranked = rankSuspects(profiled.profile, parsed.suspects, parsed.markers, sequence);
         renderState({
           markers: parsed.markers,
           sampleProfile: profiled.profile,
