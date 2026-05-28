@@ -477,8 +477,8 @@ def run_interactive(
     db_path: str = DEFAULT_DB_PATH,
     output_dir: str = DEFAULT_OUTPUT_DIR,
 ) -> None:
-    output_func("=== CSI STR Profiler: Mode Interaktif ===")
-    output_func("1. Pakai DNA TKP demo")
+    output_func("=== CSIdentify ===")
+    output_func("1. Pakai file DNA TKP")
     output_func("2. Ketik DNA TKP manual")
     output_func("3. Pakai file DNA sendiri")
     choice = (input_func("Pilih mode [1]: ").strip() or "1")
@@ -496,7 +496,9 @@ def run_interactive(
         label = input_func("Label kasus [DNA TKP dari file]: ").strip() or "DNA TKP dari file"
         source = f"file: {selected_dna_path}"
     else:
-        dna_sequence = read_dna_sequence(dna_path)
+        selected_dna_path = input_func(f"Path file DNA TKP [{dna_path}]: ").strip() or dna_path
+        dna_sequence = read_dna_sequence(selected_dna_path)
+        source = f"file: {selected_dna_path}"
 
     selected_db_path = input_func(f"Path database tersangka [{db_path}]: ").strip() or db_path
 

@@ -16,9 +16,9 @@ Program ini mensimulasikan investigasi DNA forensik berbasis Short Tandem Repeat
 python3 csidentify.py
 ```
 
-Secara default, program berjalan dalam mode interaktif. Program akan meminta pilihan input DNA:
+Program akan meminta pilihan input DNA:
 
-- pakai DNA TKP demo,
+- pakai file DNA TKP,
 - ketik sekuens DNA sendiri,
 - atau pakai file DNA lain.
 

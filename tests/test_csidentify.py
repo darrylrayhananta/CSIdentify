@@ -161,7 +161,7 @@ class CsidentifyTests(unittest.TestCase):
     def test_interactive_mode_uses_default_output_and_always_prints_trace(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_dir = Path(tmp_dir) / "output"
-            answers = iter(["1", "data/suspects.csv"])
+            answers = iter(["1", "data/crime_scene_dna.txt", "data/suspects.csv"])
             prompts = []
             lines = []
 
@@ -176,7 +176,9 @@ class CsidentifyTests(unittest.TestCase):
             self.assertFalse(any("CSV kasus" in prompt for prompt in prompts))
             self.assertFalse(any("Folder output" in prompt for prompt in prompts))
             self.assertFalse(any("Tampilkan jejak" in prompt for prompt in prompts))
+            self.assertTrue(any("Path file DNA TKP" in prompt for prompt in prompts))
             self.assertFalse(Path("data/cases.csv").exists())
+            self.assertFalse(any("Mode Interaktif" in line for line in lines))
             self.assertTrue(any("Analisis DNA dimulai" in line for line in lines))
             self.assertTrue(any("=== Jejak Processing STR ===" in line for line in lines))
 
