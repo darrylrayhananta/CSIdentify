@@ -1,28 +1,22 @@
-"""Forensic STR profiling with regular expressions.
-
-The program compares a crime-scene DNA sequence against a suspect database by
-counting the longest consecutive run for each Short Tandem Repeat (STR) marker.
-It then uses Smith-Waterman local alignment as a second-stage sequence check
-when suspect DNA sequences are available.
-"""
-
 from __future__ import annotations
 
-import argparse
 import csv
 import json
 import re
 import time
-from pathlib import Path
+from pathlib import Path 
 from typing import Callable, Iterable
 
 
 Suspect = dict[str, object]
 DNA_SEQUENCE_COLUMNS = {"dna_sequence", "dna sequence", "sequence", "sekuens_dna", "sekuens dna"}
+DEFAULT_DNA_PATH = "data/crime_scene_dna.txt"
+DEFAULT_DB_PATH = "data/suspects.csv"
+DEFAULT_OUTPUT_DIR = "output"
 
 
 def compact_sequence(sequence: str) -> str:
-    """Uppercase a sequence and remove whitespace characters."""
+    """Ubah sekuens menjadi huruf besar dan hapus whitespace."""
     return re.sub(r"\s+", "", sequence).upper()
 
 
@@ -30,9 +24,9 @@ def validate_dna_sequence(sequence: str) -> str:
     sequence = compact_sequence(sequence)
     invalid = sorted(set(sequence) - set("ACGTN"))
     if invalid:
-        raise ValueError(f"DNA sequence contains invalid characters: {', '.join(invalid)}")
+        raise ValueError(f"Sekuens DNA mengandung karakter tidak valid: {', '.join(invalid)}")
     if not sequence:
-        raise ValueError("DNA sequence must not be empty")
+        raise ValueError("Sekuens DNA tidak boleh kosong")
     return sequence
 
 
@@ -40,11 +34,11 @@ def read_dna_sequence(path: str | Path) -> str:
     try:
         return validate_dna_sequence(Path(path).read_text(encoding="utf-8"))
     except ValueError as exc:
-        raise ValueError(str(exc).replace("DNA sequence", "DNA file")) from exc
+        raise ValueError(str(exc).replace("Sekuens DNA", "File DNA")) from exc
 
 
 def find_repeat_runs(sequence: str, marker: str) -> list[dict[str, object]]:
-    """Return every consecutive STR run with positions for an explainable trace."""
+    """Cari semua run STR berurutan beserta posisinya untuk jejak analisis."""
     sequence = compact_sequence(sequence)
     marker = compact_sequence(marker)
     if not marker:
@@ -68,13 +62,13 @@ def find_repeat_runs(sequence: str, marker: str) -> list[dict[str, object]]:
 
 
 def longest_consecutive_repeats(sequence: str, marker: str) -> int:
-    """Return the longest consecutive repeat count of marker inside sequence."""
+    """Hitung repeat berurutan terpanjang untuk satu marker."""
     runs = find_repeat_runs(sequence, marker)
     return max((int(run["repeat_count"]) for run in runs), default=0)
 
 
 def profile_sequence(sequence: str, markers: Iterable[str]) -> dict[str, int]:
-    """Build an STR profile for a DNA sequence."""
+    """Buat profil STR dari sebuah sekuens DNA."""
     return {marker: longest_consecutive_repeats(sequence, marker) for marker in markers}
 
 
@@ -85,7 +79,7 @@ def smith_waterman_local_alignment(
     mismatch_penalty: int = -1,
     gap_penalty: int = -2,
 ) -> dict[str, object]:
-    """Return the best local alignment between two DNA sequences."""
+    """Cari local alignment terbaik antara dua sekuens DNA."""
     query = validate_dna_sequence(query)
     subject = validate_dna_sequence(subject)
     row_count = len(query) + 1
@@ -179,7 +173,7 @@ def smith_waterman_local_alignment(
 
 
 def alignment_support_percent(alignment: dict[str, object]) -> float:
-    """Weight local identity by query coverage to avoid tiny high-identity matches."""
+    """Bobot identity alignment dengan coverage agar match pendek tidak berlebihan."""
     return round(
         float(alignment["identity_percent"]) * float(alignment["query_coverage_percent"]) / 100,
         2,
@@ -187,16 +181,15 @@ def alignment_support_percent(alignment: dict[str, object]) -> float:
 
 
 def load_suspects(path: str | Path) -> tuple[list[Suspect], list[str]]:
-    """Load suspect profiles from a CSV file.
+    """Baca profil tersangka dari CSV.
 
-    The first column is treated as the suspect name. Remaining columns are STR
-    marker names whose values must be integer repeat counts. A DNA_Sequence
-    column is optional and is used for sequence alignment.
+    Kolom pertama adalah nama tersangka. Kolom marker STR berisi jumlah repeat.
+    Kolom DNA_Sequence bersifat opsional dan digunakan untuk alignment.
     """
     with Path(path).open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         if not reader.fieldnames or len(reader.fieldnames) < 2:
-            raise ValueError("CSV must contain a name column and at least one STR marker column")
+            raise ValueError("CSV harus memiliki kolom nama dan minimal satu kolom marker STR")
 
         name_field = reader.fieldnames[0]
         sequence_field = next(
@@ -212,7 +205,7 @@ def load_suspects(path: str | Path) -> tuple[list[Suspect], list[str]]:
         for row_number, row in enumerate(reader, start=2):
             name = (row.get(name_field) or "").strip()
             if not name:
-                raise ValueError(f"Missing suspect name at row {row_number}")
+                raise ValueError(f"Nama tersangka kosong pada baris {row_number}")
 
             profile: dict[str, int] = {}
             for marker in markers:
@@ -221,7 +214,7 @@ def load_suspects(path: str | Path) -> tuple[list[Suspect], list[str]]:
                     profile[marker] = int(raw_value)
                 except ValueError as exc:
                     raise ValueError(
-                        f"Invalid repeat count for {marker!r} at row {row_number}: {raw_value!r}"
+                        f"Jumlah repeat tidak valid untuk {marker!r} pada baris {row_number}: {raw_value!r}"
                     ) from exc
 
             suspect: Suspect = {"name": name, "profile": profile}
@@ -241,14 +234,14 @@ def find_best_matches(
     suspects: list[Suspect],
     sample_sequence: str | None = None,
 ) -> list[dict[str, object]]:
-    """Rank suspects by STR profile fit, then local sequence alignment."""
+    """Urutkan tersangka berdasarkan kecocokan profil STR dan alignment lokal."""
     markers = list(sample_profile.keys())
     ranked: list[dict[str, object]] = []
 
     for suspect in suspects:
         suspect_profile = suspect["profile"]
         if not isinstance(suspect_profile, dict):
-            raise TypeError("suspect profile must be a dictionary")
+            raise TypeError("Profil tersangka harus berupa dictionary")
 
         exact_count = sum(sample_profile[m] == int(suspect_profile[m]) for m in markers)
         distance = sum(abs(sample_profile[m] - int(suspect_profile[m])) for m in markers)
@@ -339,24 +332,13 @@ def analyze_sequence(
     }
 
 
-def analyze_case(dna_path: str | Path, suspects_path: str | Path, output_dir: str | Path) -> dict[str, object]:
-    sequence = read_dna_sequence(dna_path)
-    case_info = {
-        "case_id": "-",
-        "label": "DNA TKP",
-        "dna_sequence": sequence,
-        "source": f"file: {dna_path}",
-    }
-    return analyze_sequence(sequence, suspects_path, output_dir, case_info=case_info)
-
-
 def build_processing_trace(
     sequence: str,
     markers: Iterable[str],
     sample_profile: dict[str, int],
     ranked: list[dict[str, object]],
 ) -> dict[str, object]:
-    """Build structured narration data for interactive demos."""
+    """Buat data jejak proses untuk ditampilkan di terminal."""
     marker_traces = []
     markers = list(markers)
     for marker in markers:
@@ -374,7 +356,7 @@ def build_processing_trace(
     for item in ranked:
         profile = item["profile"]
         if not isinstance(profile, dict):
-            raise TypeError("suspect profile must be a dictionary")
+            raise TypeError("Profil tersangka harus berupa dictionary")
         matched_markers = [marker for marker in markers if int(profile[marker]) == sample_profile[marker]]
         difference_notes = [
             f"{marker}: tersangka {int(profile[marker])} vs TKP {sample_profile[marker]}"
@@ -409,7 +391,7 @@ def format_processing_trace(trace: dict[str, object]) -> list[str]:
     lines = ["", "=== Jejak Processing STR ==="]
     marker_traces = trace["markers"]
     if not isinstance(marker_traces, list):
-        raise TypeError("marker traces must be a list")
+        raise TypeError("Jejak marker harus berupa list")
     max_repeat = max(
         [1] + [int(marker_trace["longest_repeat"]) for marker_trace in marker_traces]
     )
@@ -417,7 +399,7 @@ def format_processing_trace(trace: dict[str, object]) -> list[str]:
     for marker_trace in marker_traces:
         runs = marker_trace["runs"]
         if not isinstance(runs, list):
-            raise TypeError("runs must be a list")
+            raise TypeError("Run STR harus berupa list")
         lines.append(f"\nScan marker {marker_trace['marker']} dengan RegEx {marker_trace['pattern']}")
         if not runs:
             lines.append("  Tidak ada run tandem yang ditemukan -> repeat = 0")
@@ -488,9 +470,12 @@ def print_case_summary(result: dict[str, object], output_func: Callable[[str], N
 
 
 def run_interactive(
-    args: argparse.Namespace,
     input_func: Callable[[str], str] = input,
     output_func: Callable[[str], None] = print,
+    animate: bool = True,
+    dna_path: str = DEFAULT_DNA_PATH,
+    db_path: str = DEFAULT_DB_PATH,
+    output_dir: str = DEFAULT_OUTPUT_DIR,
 ) -> None:
     output_func("=== CSI STR Profiler: Mode Interaktif ===")
     output_func("1. Pakai DNA TKP demo")
@@ -500,20 +485,20 @@ def run_interactive(
 
     dna_sequence: str | None = None
     label = "DNA TKP Demo"
-    source = f"file: {args.dna}"
+    source = f"file: {dna_path}"
     if choice == "2":
         label = input_func("Label kasus [DNA TKP Manual]: ").strip() or "DNA TKP Manual"
         dna_sequence = validate_dna_sequence(input_func("Tempel sekuens DNA TKP: "))
         source = "input manual"
     elif choice == "3":
-        dna_path = input_func(f"Path file DNA [{args.dna}]: ").strip() or args.dna
-        dna_sequence = read_dna_sequence(dna_path)
+        selected_dna_path = input_func(f"Path file DNA [{dna_path}]: ").strip() or dna_path
+        dna_sequence = read_dna_sequence(selected_dna_path)
         label = input_func("Label kasus [DNA TKP dari file]: ").strip() or "DNA TKP dari file"
-        source = f"file: {dna_path}"
+        source = f"file: {selected_dna_path}"
     else:
-        dna_sequence = read_dna_sequence(args.dna)
+        dna_sequence = read_dna_sequence(dna_path)
 
-    db_path = input_func(f"Path database tersangka [{args.db}]: ").strip() or args.db
+    selected_db_path = input_func(f"Path database tersangka [{db_path}]: ").strip() or db_path
 
     case_info = {
         "label": label,
@@ -521,44 +506,19 @@ def run_interactive(
         "source": source,
     }
     output_func("\nAnalisis DNA dimulai...")
-    result = analyze_sequence(dna_sequence, db_path, args.out, case_info=case_info)
+    result = analyze_sequence(dna_sequence, selected_db_path, output_dir, case_info=case_info)
     print_lines(
         format_processing_trace(result["processing_trace"]),
         output_func=output_func,
-        animate=not args.no_animation,
+        animate=animate,
     )
     print_case_summary(result, output_func=output_func)
 
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Analyze forensic STR profiles from DNA and suspect CSV files.")
-    parser.add_argument("--dna", default="data/crime_scene_dna.txt", help="Path to the crime-scene DNA sequence")
-    parser.add_argument("--db", default="data/suspects.csv", help="Path to the suspect profile CSV")
-    parser.add_argument("--out", default="output", help="Directory for JSON output")
-    parser.add_argument("--batch", action="store_true", help="Run once without prompts using CLI arguments")
-    parser.add_argument("--explain", action="store_true", help="Print the RegEx scan trace in batch mode")
-    parser.add_argument("--no-animation", action="store_true", help="Disable small delays between interactive narration lines")
-    return parser.parse_args(argv)
-
-
-def run_batch(args: argparse.Namespace) -> None:
-    result = analyze_case(args.dna, args.db, args.out)
-    if args.explain:
-        print_lines(format_processing_trace(result["processing_trace"]))
-    print_case_summary(result)
-
-
 def main(
-    argv: list[str] | None = None,
-    interactive_runner: Callable[[argparse.Namespace], None] = run_interactive,
-    batch_runner: Callable[[argparse.Namespace], None] = run_batch,
+    interactive_runner: Callable[[], None] = run_interactive,
 ) -> None:
-    args = parse_args(argv)
-    if not args.batch:
-        interactive_runner(args)
-        return
-
-    batch_runner(args)
+    interactive_runner()
 
 
 if __name__ == "__main__":

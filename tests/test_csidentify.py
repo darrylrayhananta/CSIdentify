@@ -12,11 +12,12 @@ from csidentify import (
     longest_consecutive_repeats,
     main,
     profile_sequence,
+    run_interactive,
     smith_waterman_local_alignment,
 )
 
 
-class ForensicStrTests(unittest.TestCase):
+class CsidentifyTests(unittest.TestCase):
     def test_longest_consecutive_repeats_uses_longest_run_not_total(self):
         sequence = "AAAGATAGATCCAGATAGATAGATAGATT"
 
@@ -164,13 +165,11 @@ class ForensicStrTests(unittest.TestCase):
             prompts = []
             lines = []
 
-            from csidentify import parse_args, run_interactive
-
-            args = parse_args(["--out", str(output_dir), "--no-animation"])
             run_interactive(
-                args,
                 input_func=lambda prompt: (prompts.append(prompt), next(answers))[1],
                 output_func=lines.append,
+                animate=False,
+                output_dir=str(output_dir),
             )
 
             self.assertTrue((output_dir / "analysis_result.json").exists())
@@ -199,22 +198,9 @@ class ForensicStrTests(unittest.TestCase):
     def test_main_defaults_to_interactive_mode(self):
         calls = []
 
-        main(argv=[], interactive_runner=lambda args: calls.append(args))
+        main(interactive_runner=lambda: calls.append("interactive"))
 
-        self.assertEqual(len(calls), 1)
-        self.assertFalse(calls[0].batch)
-
-    def test_main_batch_flag_keeps_non_interactive_cli(self):
-        calls = []
-
-        main(
-            argv=["--batch"],
-            interactive_runner=lambda args: self.fail("interactive runner should not be called"),
-            batch_runner=lambda args: calls.append(args),
-        )
-
-        self.assertEqual(len(calls), 1)
-        self.assertTrue(calls[0].batch)
+        self.assertEqual(calls, ["interactive"])
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-# Forensic STR Profiler
+# CSIdentify
 
 Program ini mensimulasikan investigasi DNA forensik berbasis Short Tandem Repeats (STR) dan sequence alignment. DNA dari TKP diprofilkan dengan RegEx untuk mencari jumlah pengulangan berurutan terpanjang pada setiap marker, lalu profil tersebut dibandingkan dengan database tersangka. Setelah itu, sistem melakukan Smith-Waterman local alignment antara sekuens DNA TKP dan sekuens DNA tersangka untuk memvalidasi kemiripan fragmen DNA.
 
@@ -23,12 +23,6 @@ Secara default, program berjalan dalam mode interaktif. Program akan meminta pil
 - atau pakai file DNA lain.
 
 Setelah input diberikan, program langsung menganalisis DNA tersebut. Program juga akan menampilkan jejak processing: pola RegEx yang dipakai, posisi run STR yang ditemukan, repeat terpanjang per marker, skor Smith-Waterman, lalu skoring tiap tersangka.
-
-Kalau ingin tetap non-interaktif tetapi prosesnya terlihat:
-
-```bash
-python3 csidentify.py --batch --explain --dna data/crime_scene_dna.txt --db data/suspects.csv --out output
-```
 
 Hasil program terminal:
 
