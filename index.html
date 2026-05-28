@@ -387,6 +387,21 @@
     .ranking-card {
       grid-column: span 7;
     }
+    .summary-card {
+      grid-column: 1 / -1;
+      padding: 16px;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+    }
+    .summary-note {
+      margin: 12px 0 0;
+      color: var(--on-surface-variant);
+      font-size: 13px;
+      line-height: 19px;
+    }
     .trace-card {
       grid-column: 1 / -1;
     }
@@ -457,6 +472,15 @@
     }
     .table-wrap {
       overflow-x: auto;
+    }
+    .ranking-scroll {
+      max-height: 332px;
+      overflow: auto;
+    }
+    .ranking-scroll thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
     table {
       width: 100%;
@@ -533,6 +557,7 @@
       .details-grid,
       .profile-card,
       .ranking-card,
+      .summary-card,
       .alignment-card,
       .trace-card {
         grid-column: 1 / -1;
@@ -567,6 +592,9 @@
         padding: 12px;
       }
       .alignment-metrics {
+        grid-template-columns: 1fr;
+      }
+      .summary-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -675,6 +703,28 @@
       </div>
     </section>
 
+    <section id="summarySection" class="data-tile summary-card analysis-page page-hidden">
+      <div class="summary-grid">
+        <div class="metric-tile">
+          <p class="metric-label">Panjang DNA TKP</p>
+          <p id="sampleLengthView" class="metric-value">0 bp</p>
+        </div>
+        <div class="metric-tile">
+          <p class="metric-label">Marker STR</p>
+          <p id="markerCountView" class="metric-value">0</p>
+        </div>
+        <div class="metric-tile">
+          <p class="metric-label">Tersangka</p>
+          <p id="suspectCountView" class="metric-value">0</p>
+        </div>
+        <div class="metric-tile">
+          <p class="metric-label">Dengan sekuens DNA</p>
+          <p id="sequenceCountView" class="metric-value">0</p>
+        </div>
+      </div>
+      <p class="summary-note">Trace RegEx di bawah dihitung dari DNA TKP. Profil STR tersangka dibaca dari CSV, sedangkan sekuens DNA tersangka digunakan untuk Smith-Waterman local alignment pada proses ranking.</p>
+    </section>
+
     <section id="detailsSection" class="details-grid analysis-page page-hidden">
       <article class="data-tile table-card profile-card">
         <div class="table-header">
@@ -692,7 +742,7 @@
         <div class="table-header primary">
           <h3>Suspect Rankings</h3>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap ranking-scroll">
           <table>
             <thead><tr><th>Rank</th><th>Suspect Name</th><th>Matched</th><th>STR</th><th>Alignment</th><th>Combined</th><th>Status</th></tr></thead>
             <tbody id="suspectRows"></tbody>
@@ -703,7 +753,7 @@
 
     <section id="traceSection" class="data-tile table-card trace-card analysis-page page-hidden">
       <div class="table-header secondary">
-        <h3>Trace RegEx Patterns</h3>
+        <h3>Trace RegEx Patterns DNA TKP</h3>
       </div>
       <div class="table-wrap">
         <table>
@@ -1015,6 +1065,10 @@
     function renderEmptyState() {
       $('analysisStatus').textContent = 'Menunggu file';
       showInputPage();
+      $('sampleLengthView').textContent = '0 bp';
+      $('markerCountView').textContent = '0';
+      $('suspectCountView').textContent = '0';
+      $('sequenceCountView').textContent = '0';
       $('profileRows').innerHTML = '';
       $('suspectRows').innerHTML = '';
       $('traceRows').innerHTML = '';
@@ -1092,14 +1146,23 @@
       $('resultSummary').classList.add('is-visible');
       showAnalysisPage();
 
-      $('verdictView').textContent = best.isExactMatch ? '100% MATCH' : 'PARTIAL MATCH';
-      $('verdictView').className = best.isExactMatch ? 'badge-exact' : 'badge-partial';
+      const bestStatus = best.combinedScorePercent === 0
+        ? { label: 'NOT MATCH', className: 'badge-low' }
+        : best.isExactMatch
+          ? { label: '100% MATCH', className: 'badge-exact' }
+          : { label: 'PARTIAL MATCH', className: 'badge-partial' };
+      $('verdictView').textContent = bestStatus.label;
+      $('verdictView').className = bestStatus.className;
       $('bestNameView').textContent = best.name;
       $('scoreView').textContent = `${best.combinedScorePercent}%`;
       $('matchedView').textContent = `${best.matchingMarkers}/${best.markerCount}`;
       $('strScoreView').textContent = `${best.scorePercent}%`;
       $('alignmentScoreView').textContent = `${best.alignmentScorePercent}%`;
       $('distanceView').textContent = String(best.distance);
+      $('sampleLengthView').textContent = `${state.sequence.length} bp`;
+      $('markerCountView').textContent = String(state.markers.length);
+      $('suspectCountView').textContent = String(state.ranked.length);
+      $('sequenceCountView').textContent = String(state.suspectsWithSequence);
       if (best.alignment) {
         $('alignmentRawScoreView').textContent = String(best.alignment.score);
         $('alignmentIdentityView').textContent = `${best.alignment.identityPercent}%`;
@@ -1123,15 +1186,22 @@
         `<tr><td><strong>${escapeHtml(marker)}</strong></td><td>${state.sampleProfile[marker]}</td></tr>`
       )).join('');
       $('suspectRows').innerHTML = state.ranked.map((item, index) => (
-        `<tr>
-          <td><span class="rank">${index + 1}</span></td>
-          <td><strong>${escapeHtml(item.name)}</strong></td>
-          <td>${item.matchingMarkers}/${item.markerCount}</td>
-          <td>${item.scorePercent}%</td>
-          <td>${item.alignmentScorePercent}%</td>
-          <td>${item.combinedScorePercent}%</td>
-          <td><span class="${item.isExactMatch ? 'badge-exact' : 'badge-partial'}">${item.isExactMatch ? 'Exact match' : 'Partial match'}</span></td>
-        </tr>`
+        (() => {
+          const status = item.combinedScorePercent === 0
+            ? { label: 'Not match', className: 'badge-low' }
+            : item.isExactMatch
+              ? { label: 'Exact match', className: 'badge-exact' }
+              : { label: 'Partial match', className: 'badge-partial' };
+          return `<tr>
+            <td><span class="rank">${index + 1}</span></td>
+            <td><strong>${escapeHtml(item.name)}</strong></td>
+            <td>${item.matchingMarkers}/${item.markerCount}</td>
+            <td>${item.scorePercent}%</td>
+            <td>${item.alignmentScorePercent}%</td>
+            <td>${item.combinedScorePercent}%</td>
+            <td><span class="${status.className}">${status.label}</span></td>
+          </tr>`;
+        })()
       )).join('');
       $('traceRows').innerHTML = state.trace.map((item) => {
         const runs = item.runs.length
@@ -1182,6 +1252,7 @@
           trace: profiled.trace,
           ranked,
           sequence,
+          suspectsWithSequence: parsed.suspects.filter((suspect) => suspect.dnaSequence).length,
         });
       } catch (error) {
         renderEmptyState();
