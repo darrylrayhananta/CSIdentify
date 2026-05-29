@@ -862,7 +862,9 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const REQUIRED_FILE_MESSAGE = 'Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.';
+    const REQUIRED_BOTH_FILES_MESSAGE = 'Upload file .txt DNA TKP dan file .csv tersangka terlebih dahulu.';
+    const REQUIRED_DNA_FILE_MESSAGE = 'Upload file .txt DNA TKP terlebih dahulu.';
+    const REQUIRED_SUSPECT_FILE_MESSAGE = 'Upload file .csv tersangka terlebih dahulu.';
     const DNA_SEQUENCE_HEADERS = ['dna_sequence', 'dna sequence', 'sequence', 'sekuens_dna', 'sekuens dna'];
     const CHART_COLORS = ['#204494', '#e63a6e', '#CB6B85', '#FCBEA7', '#FDD9C0', '#D61847', '#3a5fc0'];
 
@@ -1142,6 +1144,16 @@
       $('errorBox').style.display = 'none';
     }
 
+    function getRequiredFileMessage(hasDna, hasSuspect) {
+      if (!hasDna && !hasSuspect) {
+        return REQUIRED_BOTH_FILES_MESSAGE;
+      }
+      if (!hasDna) {
+        return REQUIRED_DNA_FILE_MESSAGE;
+      }
+      return REQUIRED_SUSPECT_FILE_MESSAGE;
+    }
+
     function showInputPage() {
       document.querySelectorAll('.analysis-page').forEach((element) => element.classList.add('page-hidden'));
       document.querySelectorAll('.input-page').forEach((element) => element.classList.remove('page-hidden'));
@@ -1326,9 +1338,11 @@
       clearError();
       const dnaFileInput = $('dnaFileInput');
       const suspectCsvFileInput = $('suspectCsvFileInput');
-      if (!dnaFileInput.files.length || !suspectCsvFileInput.files.length) {
+      const hasDna = dnaFileInput.files.length > 0;
+      const hasSuspect = suspectCsvFileInput.files.length > 0;
+      if (!hasDna || !hasSuspect) {
         renderEmptyState();
-        showError(REQUIRED_FILE_MESSAGE);
+        showError(getRequiredFileMessage(hasDna, hasSuspect));
         return;
       }
 
