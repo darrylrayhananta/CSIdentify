@@ -125,6 +125,37 @@
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
+    .upload-progress {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+      max-width: 460px;
+    }
+    .upload-progress-track {
+      flex: 1;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--surface-high);
+      overflow: hidden;
+    }
+    .upload-progress-fill {
+      height: 100%;
+      width: 0;
+      border-radius: 999px;
+      background: var(--primary-container);
+      transition: width 280ms ease, background 280ms ease;
+    }
+    .upload-progress.is-complete .upload-progress-fill {
+      background: linear-gradient(90deg, #204494, #e63a6e);
+    }
+    .upload-progress-label {
+      min-width: 38px;
+      text-align: right;
+      color: var(--primary-container);
+      font-size: 13px;
+      font-weight: 700;
+    }
     .data-tile {
       background: var(--surface-lowest);
       border: 1px solid rgba(32, 68, 148, 0.10);
@@ -132,6 +163,7 @@
       box-shadow: 0 4px 18px rgba(32, 68, 148, 0.04);
     }
     .upload-zone {
+      position: relative;
       grid-column: span 6;
       min-height: 240px;
       padding: 24px;
@@ -170,6 +202,28 @@
     .upload-zone.ready .file-note::before {
       content: "\2713";
       font-weight: 900;
+    }
+    .file-remove {
+      display: none;
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      min-height: 0;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 999px;
+      background: var(--secondary-container);
+      color: #ffffff;
+      box-shadow: none;
+      z-index: 1;
+    }
+    .file-remove:hover {
+      background: #c01f53;
+      transform: none;
+    }
+    .upload-zone.ready .file-remove {
+      display: inline-flex;
     }
     .material-symbols-outlined {
       font-family: "Material Symbols Outlined";
@@ -635,6 +689,10 @@
       <h1>Analysis Workspace</h1>
       <p class="subtitle">Upload forensic data to initiate matching sequences against the suspect database.</p>
       <div class="status-chip"><span class="material-symbols-outlined" style="font-size:16px;">pending</span><span id="analysisStatus">Menunggu file</span></div>
+      <div id="uploadProgress" class="upload-progress">
+        <div class="upload-progress-track"><div id="uploadProgressFill" class="upload-progress-fill"></div></div>
+        <span id="uploadProgressLabel" class="upload-progress-label">0%</span>
+      </div>
     </section>
 
     <label class="data-tile upload-zone input-page" id="dnaUploadZone" for="dnaFileInput">
@@ -644,6 +702,9 @@
       <span class="btn-outline">Select File</span>
       <input id="dnaFileInput" type="file" accept=".txt,text/plain">
       <span id="dnaFileStatus" class="file-note">Belum ada file DNA TKP.</span>
+      <button id="dnaRemoveBtn" type="button" class="file-remove" aria-label="Hapus file DNA TKP">
+        <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+      </button>
     </label>
 
     <label class="data-tile upload-zone input-page" id="suspectUploadZone" for="suspectCsvFileInput">
@@ -653,6 +714,9 @@
       <span class="btn-outline">Select File</span>
       <input id="suspectCsvFileInput" type="file" accept=".csv,text/csv">
       <span id="suspectFileStatus" class="file-note">Belum ada file CSV tersangka.</span>
+      <button id="suspectRemoveBtn" type="button" class="file-remove" aria-label="Hapus file database tersangka">
+        <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+      </button>
     </label>
 
     <div id="inputActions" class="action-area">
@@ -1080,7 +1144,7 @@
     }
 
     function renderEmptyState() {
-      $('analysisStatus').textContent = 'Menunggu file';
+      updateWaitingStatus();
       showInputPage();
       $('sampleLengthView').textContent = '0 bp';
       $('markerCountView').textContent = '0';
@@ -1277,11 +1341,42 @@
       }
     }
 
+    function updateWaitingStatus() {
+      const hasDna = $('dnaFileInput').files.length > 0;
+      const hasSuspect = $('suspectCsvFileInput').files.length > 0;
+      let message;
+      if (hasDna && hasSuspect) {
+        message = 'File lengkap, siap dianalisis';
+      } else if (!hasDna && !hasSuspect) {
+        message = 'Menunggu file DNA TKP & database';
+      } else if (!hasDna) {
+        message = 'Menunggu file DNA TKP';
+      } else {
+        message = 'Menunggu file database tersangka';
+      }
+      $('analysisStatus').textContent = message;
+
+      const uploadedCount = (hasDna ? 1 : 0) + (hasSuspect ? 1 : 0);
+      const percent = uploadedCount * 50;
+      $('uploadProgressFill').style.width = `${percent}%`;
+      $('uploadProgressLabel').textContent = `${percent}%`;
+      $('uploadProgress').classList.toggle('is-complete', percent === 100);
+    }
+
+    function clearFileInput(input, statusEl, zone, defaultMessage) {
+      input.value = '';
+      statusEl.textContent = defaultMessage;
+      zone.classList.remove('ready');
+      clearError();
+      updateWaitingStatus();
+    }
+
     $('dnaFileInput').addEventListener('change', (event) => {
       const file = event.target.files[0];
       $('dnaFileStatus').textContent = file ? file.name : 'Belum ada file DNA TKP.';
       $('dnaUploadZone').classList.toggle('ready', Boolean(file));
       clearError();
+      updateWaitingStatus();
     });
 
     $('suspectCsvFileInput').addEventListener('change', (event) => {
@@ -1289,6 +1384,19 @@
       $('suspectFileStatus').textContent = file ? file.name : 'Belum ada file CSV tersangka.';
       $('suspectUploadZone').classList.toggle('ready', Boolean(file));
       clearError();
+      updateWaitingStatus();
+    });
+
+    $('dnaRemoveBtn').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearFileInput($('dnaFileInput'), $('dnaFileStatus'), $('dnaUploadZone'), 'Belum ada file DNA TKP.');
+    });
+
+    $('suspectRemoveBtn').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearFileInput($('suspectCsvFileInput'), $('suspectFileStatus'), $('suspectUploadZone'), 'Belum ada file CSV tersangka.');
     });
 
     $('analyzeButton').addEventListener('click', runInteractiveAnalysis);
