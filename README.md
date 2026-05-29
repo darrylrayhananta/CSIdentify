@@ -2,6 +2,21 @@
 
 Program ini mensimulasikan investigasi DNA forensik berbasis Short Tandem Repeats (STR) dan sequence alignment. DNA dari TKP diprofilkan dengan RegEx untuk mencari jumlah pengulangan berurutan terpanjang pada setiap marker, lalu profil tersebut dibandingkan dengan database tersangka. Setelah itu, sistem melakukan Smith-Waterman local alignment antara sekuens DNA TKP dan sekuens DNA tersangka untuk memvalidasi kemiripan fragmen DNA.
 
+## Informasi Proyek
+
+- Mata kuliah: IF3211 Komputasi Domain Spesifik
+- Kelompok: 7
+- Anggota:
+  - Florecita Natawirya - 18223040
+  - Darryl Rayhananta Adenan - 18223042
+  - Fhatika Adhalisman Ryanjani - 18223062
+  - Muhammad Refino Ramadhan - 18223070
+
+## Tautan
+
+- Deployment: [https://csidentify.vercel.app](https://csidentify.vercel.app)
+- Video demo: [https://youtu.be/bXs0WNmRoPw](https://youtu.be/bXs0WNmRoPw)
+
 ## Struktur
 
 - `csidentify.py`: modul utama dan CLI.
