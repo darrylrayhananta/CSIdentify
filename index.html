@@ -130,7 +130,7 @@
       align-items: center;
       gap: 12px;
       margin-top: 16px;
-      max-width: 460px;
+      width: 100%;
     }
     .upload-progress-track {
       flex: 1;
@@ -208,15 +208,28 @@
       position: absolute;
       top: 12px;
       right: 12px;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
       min-height: 0;
       width: 30px;
       height: 30px;
       padding: 0;
+      line-height: 0;
       border-radius: 999px;
       background: var(--secondary-container);
       color: #ffffff;
       box-shadow: none;
       z-index: 1;
+    }
+    .file-remove .material-symbols-outlined {
+      display: block;
+      color: #ffffff;
+      margin: 0;
+      font-size: 18px;
+      line-height: 1;
+      position: relative;
+      top: 7.5px;
     }
     .file-remove:hover {
       background: #c01f53;
