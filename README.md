@@ -1,65 +1,92 @@
 # CSIdentify
 
-Program ini mensimulasikan investigasi DNA forensik berbasis Short Tandem Repeats (STR) dan sequence alignment. DNA dari TKP diprofilkan dengan RegEx untuk mencari jumlah pengulangan berurutan terpanjang pada setiap marker, lalu profil tersebut dibandingkan dengan database tersangka. Setelah itu, sistem melakukan Smith-Waterman local alignment antara sekuens DNA TKP dan sekuens DNA tersangka untuk memvalidasi kemiripan fragmen DNA.
+> Simulasi investigasi DNA forensik yang menggabungkan profiling Short Tandem Repeats dan Smith-Waterman local alignment.
 
-## Informasi Proyek
+## Demo
 
-- Mata kuliah: IF3211 Komputasi Domain Spesifik
-- Kelompok: 7
-- Anggota:
-  - Florecita Natawirya - 18223040
-  - Darryl Rayhananta Adenan - 18223042
-  - Fhatika Adhalisman Ryanjani - 18223062
-  - Muhammad Refino Ramadhan - 18223070
+- **[Aplikasi web](https://csidentify.vercel.app)**
+- **[Video demo](https://youtu.be/bXs0WNmRoPw)**
 
-## Tautan
+## Ringkasan
 
-- Deployment: [https://csidentify.vercel.app](https://csidentify.vercel.app)
-- Video demo: [https://youtu.be/bXs0WNmRoPw](https://youtu.be/bXs0WNmRoPw)
+CSIdentify dikembangkan sebagai proyek kelompok **IF3211 — Komputasi Domain Spesifik**. Sistem menerima sekuens DNA dari tempat kejadian, menghitung repeat STR terpanjang pada setiap marker, membandingkannya dengan database tersangka, lalu menggunakan local sequence alignment sebagai bukti pendukung.
 
-## Struktur
+| Aspek | Detail |
+|---|---|
+| Domain | Bioinformatika dan digital forensics |
+| Algoritma | Regex STR profiling, Smith-Waterman alignment |
+| Implementasi | Python CLI dan static web dashboard |
+| Quality assurance | Unit test untuk algoritma inti dan edge cases |
 
-- `csidentify.py`: modul utama dan CLI.
-- `data/crime_scene_dna.txt`: sampel DNA TKP sintetis untuk demo.
-- `data/suspects.csv`: database profil STR 10 tersangka beserta sekuens DNA sintetis untuk alignment.
-- `tests/test_csidentify.py`: unit test untuk algoritma inti.
-- `output/`: folder hasil JSON setelah program dijalankan.
+## Alur Analisis
 
-## Cara Menjalankan
+```text
+DNA TKP
+  ├── validasi A/C/G/T/N
+  ├── cari repeat STR terpanjang per marker
+  └── bandingkan dengan setiap tersangka
+          ├── STR similarity (70%)
+          └── local alignment support (30%)
+                  └── ranking kandidat
+```
+
+## Fitur
+
+- Validasi dan normalisasi sekuens DNA.
+- Jejak posisi setiap run STR yang ditemukan.
+- Profil beberapa marker STR dari sampel TKP.
+- Smith-Waterman dengan skor match, mismatch, dan gap yang dapat dikonfigurasi.
+- Ranking tersangka berdasarkan kombinasi profil dan alignment.
+- Output JSON terstruktur untuk audit atau integrasi.
+- Dashboard web statis untuk demonstrasi visual.
+
+## Menjalankan CLI
 
 ```bash
+git clone https://github.com/darrylrayhananta/CSIdentify.git
+cd CSIdentify
 python3 csidentify.py
 ```
 
-Program akan meminta pilihan input DNA:
+Program menawarkan tiga sumber input:
 
-- pakai file DNA TKP,
-- ketik sekuens DNA sendiri,
-- atau pakai file DNA lain.
+- file sampel DNA bawaan;
+- sekuens yang diketik langsung; atau
+- file DNA lain yang diberikan pengguna.
 
-Setelah input diberikan, program langsung menganalisis DNA tersebut. Program juga akan menampilkan jejak processing: pola RegEx yang dipakai, posisi run STR yang ditemukan, repeat terpanjang per marker, skor Smith-Waterman, lalu skoring tiap tersangka.
+Hasil tersimpan di `output/analysis_result.json`.
 
-Hasil program terminal:
-
-- `output/analysis_result.json`: hasil terstruktur untuk dokumentasi/pengujian.
-
-Untuk akses web, file `index.html` di root repo adalah dashboard statis yang siap dibuka langsung lewat Vercel. Jadi dosen bisa memilih: menjalankan analisis di terminal, atau memakai versi web di deployment.
-
-## Cara Menjalankan Test
+## Menjalankan Pengujian
 
 ```bash
 python3 -m unittest discover -s tests
 ```
 
-## Catatan Biologi dan Komputasi
+Pengujian mencakup validasi DNA, STR profiling, alignment, scoring, parsing database, dan output analisis.
 
-STR adalah motif DNA pendek yang berulang secara tandem. Dalam model edukatif ini, profil seseorang direpresentasikan sebagai vektor jumlah repeat maksimum untuk beberapa marker, misalnya `AGAT=7` dan `AATG=4`.
+## Struktur
 
-Sequence alignment ditambahkan sebagai tahap validasi karena sampel forensik sering berupa fragmen. Algoritma yang digunakan adalah Smith-Waterman local alignment dengan skor default `match=2`, `mismatch=-1`, dan `gap=-2`. Ranking akhir menggunakan kombinasi 70% skor kecocokan STR dan 30% skor dukungan alignment lokal. Skor dukungan alignment dihitung dari identity alignment yang dibobot dengan coverage sekuens TKP supaya kecocokan pendek tidak terlihat terlalu kuat.
-
-Format CSV tersangka:
-
-```csv
-Nama,AGAT,AATG,TATC,GCTA,TCTA,DNA_Sequence
-Bagas Pratama,7,4,6,3,5,GATTACAGTCCAGAT...
+```text
+.
+├── csidentify.py             # Algoritma, CLI, dan ekspor hasil
+├── index.html                # Dashboard web
+├── data/
+│   ├── crime_scene_dna.txt   # Sampel DNA TKP sintetis
+│   └── suspects.csv          # Profil tersangka sintetis
+├── tests/test_csidentify.py
+└── docs/                     # Laporan dan presentasi
 ```
+
+## Tim
+
+| Nama | NIM |
+|---|---|
+| Florecita Natawirya | 18223040 |
+| Darryl Rayhananta Adenan | 18223042 |
+| Fhatika Adhalisman Ryanjani | 18223062 |
+| Muhammad Refino Ramadhan | 18223070 |
+
+## Batasan
+
+Data pada repository bersifat sintetis dan sistem dibuat untuk tujuan edukasi. Hasil CSIdentify tidak boleh digunakan sebagai identifikasi forensik nyata atau dasar keputusan hukum.
+
